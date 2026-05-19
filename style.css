@@ -9,6 +9,7 @@
   --neon-purple: #bf00ff;
   --neon-gold:   #ffd700;
   --neon-red:    #ff2060;
+  --neon-green:  #00ff88;
   --bg-dark:     #0a0a1a;
   --bg-panel:    rgba(0,0,0,0.65);
   --glow-cyan:   0 0 8px #00f5ff, 0 0 20px rgba(0,245,255,0.5);
@@ -31,6 +32,8 @@ html, body {
 
 /* Leaderboard overlay must sit above the start screen */
 #lbOverlay { z-index: 200; }
+/* Shop overlay above start screen */
+#shopOverlay { z-index: 200; }
 .overlay.hidden { display: none; }
 
 .overlay-content {
@@ -90,6 +93,30 @@ html, body {
 .btn-daily:active { transform: scale(0.97); }
 .btn-daily:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
+/* ── Start screen coins row ── */
+.start-coins-row {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; justify-content: center;
+}
+.start-coins-label {
+  font-size: 0.75rem; color: rgba(255,215,0,0.6); letter-spacing: 1px;
+}
+.start-coins-val {
+  font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 700;
+  color: var(--neon-gold); text-shadow: var(--glow-gold); flex: 1; text-align: right;
+}
+.btn-shop {
+  font-family: 'Orbitron', sans-serif; font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 1.5px; padding: 5px 12px; border-radius: 50px;
+  border: 1.5px solid rgba(0,245,255,0.4);
+  background: rgba(0,245,255,0.08);
+  color: var(--neon-cyan); cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s, background 0.15s;
+  white-space: nowrap; flex-shrink: 0;
+}
+.btn-shop:hover { transform: scale(1.05); background: rgba(0,245,255,0.18); box-shadow: 0 0 14px rgba(0,245,255,0.35); }
+.btn-shop:active { transform: scale(0.96); }
+
 /* ── Daily Card ── */
 .daily-card {
   width: 100%;
@@ -146,6 +173,23 @@ html, body {
 }
 .score-row span:last-child { color: var(--neon-cyan); font-size: 1.2rem; text-shadow: var(--glow-cyan); }
 .score-row.best span:last-child { color: var(--neon-gold); text-shadow: var(--glow-gold); }
+
+/* ── Coins Earned (Game Over) ── */
+.coins-earned-row {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: rgba(255,215,0,0.07); border: 1px solid rgba(255,215,0,0.25);
+  border-radius: 30px; padding: 7px 20px; width: 100%;
+}
+.coins-earned-label {
+  font-family: 'Orbitron', sans-serif; font-size: 0.6rem;
+  letter-spacing: 2px; color: rgba(255,215,0,0.6);
+}
+.coins-earned-val {
+  font-family: 'Orbitron', sans-serif; font-size: 0.95rem; font-weight: 700;
+  color: var(--neon-gold); text-shadow: var(--glow-gold);
+}
+@keyframes coinPop { 0%{transform:scale(0.7);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+.coins-earned-val.pop { animation: coinPop 0.45s ease forwards; }
 
 /* ── Daily Result Block (Game Over) ── */
 .daily-result-block {
@@ -226,32 +270,150 @@ html, body {
 }
 .lb-overlay-list { width: 100%; }
 
+/* ── Shop Overlay ── */
+.shop-content { max-width: 360px; gap: 12px; }
+
+.shop-header {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+}
+.shop-title {
+  font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 900;
+  letter-spacing: 3px; color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+}
+.shop-coins {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3);
+  border-radius: 20px; padding: 4px 12px;
+  font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 700;
+  color: var(--neon-gold); text-shadow: var(--glow-gold);
+}
+
+/* Upgrade Card */
+.upg-card {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(0,245,255,0.15);
+  border-radius: 14px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: border-color 0.2s;
+}
+.upg-card:hover { border-color: rgba(0,245,255,0.35); }
+
+.upg-top {
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.upg-icon { font-size: 1.5rem; flex-shrink: 0; line-height: 1; margin-top: 2px; }
+.upg-info { flex: 1; text-align: left; }
+.upg-name {
+  font-family: 'Orbitron', sans-serif; font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 1.5px; color: rgba(255,255,255,0.9);
+}
+.upg-desc {
+  font-size: 0.65rem; color: rgba(255,255,255,0.4);
+  margin-top: 3px; line-height: 1.4;
+}
+.upg-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0;
+}
+.upg-stat {
+  font-family: 'Orbitron', sans-serif; font-size: 0.65rem; font-weight: 700;
+  color: var(--neon-green);
+}
+.upg-cost {
+  font-family: 'Orbitron', sans-serif; font-size: 0.62rem;
+  color: var(--neon-gold); white-space: nowrap;
+}
+.upg-cost.maxed { color: rgba(0,255,136,0.7); }
+
+.upg-progress {
+  display: flex; align-items: center; gap: 8px;
+}
+.upg-pips {
+  display: flex; gap: 4px; align-items: center;
+}
+.pip {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+  transition: background 0.2s;
+}
+.pip.filled {
+  background: var(--neon-cyan);
+  box-shadow: 0 0 5px rgba(0,245,255,0.6);
+  border-color: var(--neon-cyan);
+}
+.upg-track {
+  flex: 1; height: 4px;
+  background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;
+}
+.upg-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
+  border-radius: 2px; transition: width 0.35s ease;
+  box-shadow: 0 0 6px rgba(0,245,255,0.5);
+}
+.upg-bar.maxed {
+  background: linear-gradient(90deg, #00ff88, #00c060);
+  box-shadow: 0 0 8px rgba(0,255,136,0.6);
+}
+
+.upg-btn {
+  font-family: 'Orbitron', sans-serif; font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 2px; padding: 7px 0; border: none; border-radius: 30px;
+  background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-purple) 100%);
+  color: #fff; cursor: pointer; width: 100%;
+  transition: transform 0.12s, box-shadow 0.12s, opacity 0.15s;
+  box-shadow: 0 0 12px rgba(0,245,255,0.3);
+}
+.upg-btn:hover:not(:disabled) { transform: scale(1.03); box-shadow: 0 0 22px rgba(0,245,255,0.5); }
+.upg-btn:active:not(:disabled) { transform: scale(0.97); }
+.upg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.shop-hint {
+  font-size: 0.6rem; color: rgba(255,255,255,0.28);
+  letter-spacing: 0.5px; text-align: center;
+}
+
+/* ── Upgrade Indicators (in-game) ── */
+.upgrade-indicators {
+  position: absolute; bottom: 6px; right: 6px;
+  display: flex; gap: 4px; pointer-events: none; z-index: 10;
+}
+.upgrade-indicators.hidden { display: none; }
+.upg-badge {
+  font-size: 0.55rem; padding: 2px 6px; border-radius: 10px;
+  background: rgba(0,0,0,0.6); border: 1px solid rgba(0,245,255,0.3);
+  color: rgba(0,245,255,0.8); font-family: 'Orbitron', sans-serif;
+  letter-spacing: 0.5px; white-space: nowrap;
+}
+
 /* ── Game Wrapper ── */
 #gameWrapper {
   display: flex; flex-direction: column; align-items: center;
   justify-content: flex-start; height: 100vh; width: 100vw;
-  overflow: hidden; padding: 8px 0 4px;
+  overflow: hidden; padding: 4px 0 2px;
 }
 
-/* ── HUD ── */
+/* ── HUD — compact strip ── */
 #hud {
   display: flex; justify-content: space-between; align-items: center;
-  width: 100%; max-width: 480px; padding: 6px 16px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid rgba(0,245,255,0.15);
-  border-radius: 12px 12px 0 0; flex-shrink: 0;
+  width: 100%; max-width: 480px; padding: 3px 20px;
+  background: rgba(0,0,0,0.75);
+  border-bottom: 1px solid rgba(0,245,255,0.1);
+  border-radius: 10px 10px 0 0; flex-shrink: 0;
 }
-.hud-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.hud-item { display: flex; flex-direction: row; align-items: center; gap: 6px; }
 .hud-label {
-  font-family: 'Orbitron', sans-serif; font-size: 0.55rem;
-  letter-spacing: 2px; color: rgba(0,245,255,0.6); text-transform: uppercase;
+  font-family: 'Orbitron', sans-serif; font-size: 0.45rem;
+  letter-spacing: 2px; color: rgba(0,245,255,0.45); text-transform: uppercase;
 }
 .hud-value {
-  font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700;
-  color: var(--neon-cyan); text-shadow: var(--glow-cyan);
-  min-width: 60px; text-align: center;
+  font-family: 'Orbitron', sans-serif; font-size: 0.95rem; font-weight: 700;
+  color: var(--neon-cyan); text-shadow: 0 0 6px var(--neon-cyan);
+  min-width: 44px; text-align: left;
 }
-.center-hud .hud-value { color: var(--neon-gold); text-shadow: var(--glow-gold); }
+.center-hud .hud-value { color: var(--neon-gold); text-shadow: 0 0 6px var(--neon-gold); }
 
 /* ── Target Bar ── */
 #targetBar {
@@ -307,14 +469,34 @@ html, body {
 }
 .daily-badge.hidden { display: none; }
 
+/* ── Upgrade card note ── */
+.upg-note {
+  font-size: 0.6rem; color: rgba(0,245,255,0.6);
+  text-align: center; margin: 2px 0 4px; letter-spacing: 0.5px;
+}
+
 /* ── Controls ── */
 #controls {
   width: 100%; max-width: 480px;
-  display: flex; justify-content: center;
+  display: flex; justify-content: center; align-items: center; gap: 10px;
   padding: 8px 16px; background: var(--bg-panel);
   border-top: 1px solid rgba(0,245,255,0.15);
   border-radius: 0 0 12px 12px; flex-shrink: 0;
 }
+.btn-multi {
+  font-family: 'Orbitron', sans-serif; font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 1.5px; padding: 8px 16px; border: 2px solid rgba(191,0,255,0.5);
+  border-radius: 50px; background: rgba(191,0,255,0.12);
+  color: rgba(191,0,255,0.8); cursor: pointer;
+  transition: all 0.15s ease; white-space: nowrap;
+}
+.btn-multi:hover { background: rgba(191,0,255,0.25); border-color: rgba(191,0,255,0.8); color: #e066ff; }
+.btn-multi.active {
+  background: linear-gradient(135deg, #8800aa 0%, #bf00ff 100%);
+  border-color: #bf00ff; color: #fff;
+  box-shadow: 0 0 16px rgba(191,0,255,0.55);
+}
+.btn-multi.hidden { display: none; }
 .btn-drop {
   font-family: 'Orbitron', sans-serif; font-size: 0.95rem; font-weight: 700;
   letter-spacing: 3px; padding: 10px 36px; border: none; border-radius: 50px;
