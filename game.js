@@ -78,7 +78,11 @@ let state = {
   ballsRemaining: BALLS_START,
   ballInPlay: false,
   ballBody: null,
+  ballBody2: null,
   ballTrail: [],
+  ballTrail2: [],
+  ballsInPlay: 0,
+  currentDropIsMulti: false,
   floatingTexts: [],
   slotFlash: null,
   comboCount: 0,
@@ -107,6 +111,11 @@ let state = {
   screenFlash: 0,
   screenFlashColor: '255,255,255',
   pegHits: [],
+
+  multiBallOn: false,
+  movingBonus: null,
+  ambientMotes: [],
+  ambientMoteTimer: 0,
 
   // Daily
   isDailyMode: false,
@@ -400,14 +409,21 @@ function buildWorld() {
 // SECTION 8: Collision Handling
 // ─────────────────────────────────────────────
 function onCollision(event) {
-  if (!state.ballBody || !state.gameActive) return;
+  if (!state.gameActive) return;
   for (const pair of event.pairs) {
     const { bodyA, bodyB } = pair;
-    const other = bodyA === state.ballBody ? bodyB : bodyB === state.ballBody ? bodyA : null;
-    if (!other) continue;
+    let landedBall = null, other = null;
+    if (state.ballBody && (bodyA === state.ballBody || bodyB === state.ballBody)) {
+      landedBall = state.ballBody;
+      other = bodyA === state.ballBody ? bodyB : bodyA;
+    } else if (state.ballBody2 && (bodyA === state.ballBody2 || bodyB === state.ballBody2)) {
+      landedBall = state.ballBody2;
+      other = bodyA === state.ballBody2 ? bodyB : bodyA;
+    }
+    if (!other || !landedBall) continue;
 
     if (other.label && other.label.startsWith('slot_')) {
-      handleSlotLand(parseInt(other.label.split('_')[1], 10)); break;
+      handleSlotLand(parseInt(other.label.split('_')[1], 10), landedBall); break;
     }
     if (other.label === 'peg') {
       playSound('peg');
@@ -418,8 +434,9 @@ function onCollision(event) {
   }
 }
 
-function handleSlotLand(slotIndex) {
-  if (!state.ballInPlay) return;
+function handleSlotLand(slotIndex, landedBody) {
+  if (state.ballsInPlay === 0) return;
+  if (landedBody !== state.ballBody && landedBody !== state.ballBody2) return;
 
   const isBomb  = slotIndex === state.bombSlot;
   const isCrit  = slotIndex === state.criticalSlot;
@@ -431,8 +448,16 @@ function handleSlotLand(slotIndex) {
   if (state.luckyMode)    mult *= 2;
   if (state.isDailyMode)  mult *= state.dailyBonusMult;
   if (isCrit && !isBomb)  mult *= 3;
+  mult += getLuckyBounceMult();
 
-  const points = isBomb ? -300 : Math.round(baseValue * mult);
+  let timingBonus = false;
+  if (state.movingBonus && !isBomb) {
+    const bSlot = Math.round(Math.max(0, Math.min(SLOT_COUNT - 1, state.movingBonus.pos)));
+    if (bSlot === slotIndex) { timingBonus = true; mult *= 2; }
+  }
+
+  const divisor = state.currentDropIsMulti ? getMultiBallDivisor() : 1;
+  const points = isBomb ? -300 : Math.round(baseValue * mult / divisor);
 
   state.score = Math.max(0, state.score + points);
   if (state.score > state.highScore) {
@@ -476,10 +501,21 @@ function handleSlotLand(slotIndex) {
     playSound('land');
   }
 
+  if (timingBonus && !isSuper) {
+    spawnLandingBurst(fx, SLOT_Y, '#00ff88', 14, 150);
+    spawnImpactWave(fx, SLOT_Y, '#00ff88', 75, 2.2);
+    if (state.screenFlash < 0.3) { state.screenFlash = 0.3; state.screenFlashColor = '0,255,136'; }
+    if (state.screenShake < 0.25) state.screenShake = 0.25;
+    state.floatingTexts.push({ x: fx, y: SLOT_Y - 32, text: '⏱ TIMING BONUS! x2', color: '#00ff88', life: 1.6, maxLife: 1.6 });
+  }
+
   let label, color;
   if (isBomb)        { label = 'BOMB! -300'; color = '#ff2060'; }
+  else if (isSuper && timingBonus)  { label = `⏱★ TIMING SUPER! +${points.toLocaleString()}`; color = '#00ff88'; }
   else if (isSuper)  { label = `★ SUPER! +${points.toLocaleString()}`; color = '#ff00ff'; }
+  else if (isCrit && timingBonus)   { label = `⏱ CRIT+TIMING! +${points.toLocaleString()}`; color = '#00ff88'; }
   else if (isCrit)   { label = `CRIT x${Math.round(mult)}! +${points.toLocaleString()}`; color = '#ff6b00'; }
+  else if (timingBonus) { label = `⏱ TIMING x2! +${points.toLocaleString()}`; color = '#00ff88'; }
   else if (state.luckyMode) { label = `LUCKY +${points.toLocaleString()}`; color = '#ffe600'; }
   else               { label = `+${points.toLocaleString()}`; color = baseValue >= 500 ? '#ffd700' : '#00f5ff'; }
 
@@ -492,30 +528,57 @@ function handleSlotLand(slotIndex) {
 
   updateHUD(); updateTargetBar();
 
-  if (state.ballBody) { World.remove(engine.world, state.ballBody); state.ballBody = null; }
-  state.ballInPlay = false; state.ballTrail = [];
+  if (landedBody === state.ballBody) {
+    if (state.ballBody) { World.remove(engine.world, state.ballBody); state.ballBody = null; }
+    state.ballTrail = [];
+  } else {
+    if (state.ballBody2) { World.remove(engine.world, state.ballBody2); state.ballBody2 = null; }
+    state.ballTrail2 = [];
+  }
+  state.ballsInPlay = Math.max(0, state.ballsInPlay - 1);
+  state.ballInPlay = state.ballsInPlay > 0;
 
-  if (state.ballsRemaining <= 0) setTimeout(showGameOver, isSuper ? 1400 : 800);
-  else enableDropButton(true);
+  if (state.ballsInPlay === 0) {
+    if (state.ballsRemaining <= 0) setTimeout(showGameOver, isSuper ? 1400 : 800);
+    else enableDropButton(true);
+  }
 }
 
 // ─────────────────────────────────────────────
 // SECTION 9: Ball Dropping
 // ─────────────────────────────────────────────
 function dropBall(aimX) {
-  if (!state.gameActive || state.ballInPlay || state.ballsRemaining <= 0) return;
+  if (!state.gameActive || state.ballsInPlay > 0 || state.ballsRemaining <= 0) return;
+
+  const isMulti = state.multiBallOn && isMultiBallUnlocked();
+  const clamp = v => Math.max(BALL_RADIUS + 10, Math.min(CANVAS_W - BALL_RADIUS - 10, v));
+  const spread = getBallSpread();
 
   let x = aimX;
   if (state.isFirstBall) { x = x + (CANVAS_W / 2 - x) * 0.7; state.isFirstBall = false; }
-  x += (Math.random() - 0.5) * 16;
-  x = Math.max(BALL_RADIUS + 10, Math.min(CANVAS_W - BALL_RADIUS - 10, x));
 
-  state.ballBody = Bodies.circle(x, BALL_START_Y, BALL_RADIUS, {
+  const x1 = clamp(x + (Math.random() - 0.5) * spread);
+  state.ballBody = Bodies.circle(x1, BALL_START_Y, BALL_RADIUS, {
     restitution: 0.3, friction: 0, frictionAir: 0.01, label: 'ball', render: { visible: false },
   });
   World.add(engine.world, state.ballBody);
+  state.ballTrail = [];
 
-  state.ballInPlay = true; state.ballTrail = []; state.ballsRemaining--;
+  if (isMulti) {
+    const x2 = clamp(x + (Math.random() - 0.5) * spread);
+    state.ballBody2 = Bodies.circle(x2, BALL_START_Y + 12, BALL_RADIUS, {
+      restitution: 0.3, friction: 0, frictionAir: 0.01, label: 'ball2', render: { visible: false },
+    });
+    World.add(engine.world, state.ballBody2);
+    state.ballTrail2 = [];
+    state.ballsInPlay = 2;
+  } else {
+    state.ballBody2 = null; state.ballTrail2 = [];
+    state.ballsInPlay = 1;
+  }
+
+  state.currentDropIsMulti = isMulti;
+  state.ballInPlay = true; state.ballsRemaining--;
   engine.timing.timeScale = 1.0; state.slowMotion = 0;
 
   if (state.ballsRemaining === 0) { state.luckyMode = true; state.luckyBanner = 2.5; playSound('lucky'); }
@@ -643,15 +706,44 @@ function update(dt) {
   }
   if (state.screenShake > 0) state.screenShake -= dt;
 
+  // Moving bonus slot
+  if (state.movingBonus) {
+    const mb = state.movingBonus;
+    const ballsDropped = BALLS_START - state.ballsRemaining;
+    mb.speed = 1.2 + ballsDropped * 0.45;
+    mb.pos += mb.direction * mb.speed * dt;
+    if (mb.pos >= SLOT_COUNT - 0.5) { mb.pos = SLOT_COUNT - 0.5; mb.direction = -1; }
+    if (mb.pos <= -0.5)             { mb.pos = -0.5;              mb.direction =  1; }
+  }
+
   if (state.ballBody) {
     const { x, y } = state.ballBody.position;
     state.ballTrail.unshift({ x, y });
-    if (state.ballTrail.length > 14) state.ballTrail.pop();
+    if (state.ballTrail.length > 22) state.ballTrail.pop();
     if (y > CANVAS_H + 60) {
       World.remove(engine.world, state.ballBody);
-      state.ballBody = null; state.ballInPlay = false; state.ballTrail = [];
-      if (state.ballsRemaining <= 0) setTimeout(showGameOver, 400);
-      else enableDropButton(true);
+      state.ballBody = null; state.ballTrail = [];
+      state.ballsInPlay = Math.max(0, state.ballsInPlay - 1);
+      state.ballInPlay = state.ballsInPlay > 0;
+      if (state.ballsInPlay === 0) {
+        if (state.ballsRemaining <= 0) setTimeout(showGameOver, 400);
+        else enableDropButton(true);
+      }
+    }
+  }
+  if (state.ballBody2) {
+    const { x: x2, y: y2 } = state.ballBody2.position;
+    state.ballTrail2.unshift({ x: x2, y: y2 });
+    if (state.ballTrail2.length > 22) state.ballTrail2.pop();
+    if (y2 > CANVAS_H + 60) {
+      World.remove(engine.world, state.ballBody2);
+      state.ballBody2 = null; state.ballTrail2 = [];
+      state.ballsInPlay = Math.max(0, state.ballsInPlay - 1);
+      state.ballInPlay = state.ballsInPlay > 0;
+      if (state.ballsInPlay === 0) {
+        if (state.ballsRemaining <= 0) setTimeout(showGameOver, 400);
+        else enableDropButton(true);
+      }
     }
   }
 
@@ -677,6 +769,19 @@ function update(dt) {
   }
   if (state.screenFlash > 0) state.screenFlash -= dt;
   state.pegHits = state.pegHits.filter(h => { h.timer -= dt; return h.timer > 0; });
+
+  // Ambient motes rising from reward zone
+  state.ambientMoteTimer += dt;
+  if (state.ambientMoteTimer > 0.1) {
+    state.ambientMoteTimer = 0;
+    const mx = Math.random() * CANVAS_W;
+    const si = Math.min(SLOT_COUNT - 1, Math.floor(mx / (CANVAS_W / SLOT_COUNT)));
+    const v  = SLOT_VALUES[si];
+    let mc = si === state.bombSlot ? '255,30,80' : si === SUPER_JACKPOT_IDX ? '200,0,255' : v >= 500 ? '255,210,0' : v >= 200 ? '0,200,240' : '60,60,140';
+    const lt = 1.2 + Math.random() * 1.2;
+    state.ambientMotes.push({ x: mx + (Math.random()-0.5)*16, y: SLOT_Y - 2, vy: -(18 + Math.random() * 38), life: lt, maxLife: lt, size: 0.8 + Math.random() * 1.8, color: mc });
+  }
+  state.ambientMotes = state.ambientMotes.filter(m => { m.y += m.vy * dt; m.life -= dt; return m.life > 0; });
 }
 
 // ─────────────────────────────────────────────
@@ -689,9 +794,9 @@ function draw() {
   ctx.save(); ctx.translate(shakeX, shakeY);
   ctx.clearRect(-12, -12, CANVAS_W + 24, CANVAS_H + 24);
 
-  drawBackground(); drawImpactWaves();
-  if (state.gameActive && !state.ballInPlay && state.ballsRemaining > 0) drawAimGuide();
-  drawSlots(); drawPegs(); drawBallTrail(); drawBall(); drawParticles(); drawFloatingTexts();
+  drawBackground(); drawAmbientMotes(); drawImpactWaves();
+  if (state.gameActive && state.ballsInPlay === 0 && state.ballsRemaining > 0) drawAimGuide();
+  drawSlots(); drawMovingBonus(); drawPegs(); drawBallTrail(); if (state.ballTrail2.length > 1) drawBallTrail2(); drawBall(); if (state.ballBody2) drawBall2(); drawParticles(); drawFloatingTexts();
   if (state.isDailyMode) drawDailyTargetHint();
   if (state.comboTimer > 0 && state.multiplier >= 2) drawMultiplierBanner();
   else if (state.comboTimer > 0) drawComboText();
@@ -703,14 +808,17 @@ function draw() {
 }
 
 function drawBackground() {
-  ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  bgGrad.addColorStop(0, '#030310'); bgGrad.addColorStop(0.7, '#050514'); bgGrad.addColorStop(1, '#080810');
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   if (state.luckyMode) {
-    ctx.fillStyle = `rgba(255,230,0,${0.04 + 0.02 * Math.sin(state.superPulse)})`; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillStyle = `rgba(255,230,0,${0.06 + 0.02 * Math.sin(state.superPulse)})`; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   }
   if (state.isDailyMode) {
-    ctx.fillStyle = `rgba(255,180,0,${0.03 + 0.01 * Math.sin(state.superPulse * 0.5)})`; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillStyle = `rgba(255,180,0,${0.04 + 0.01 * Math.sin(state.superPulse * 0.5)})`; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   }
-  ctx.strokeStyle = 'rgba(0,245,255,0.04)'; ctx.lineWidth = 1;
+  // Ultra-faint grid — barely visible infrastructure
+  ctx.strokeStyle = 'rgba(0,245,255,0.012)'; ctx.lineWidth = 1;
   for (let x = 0; x <= CANVAS_W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, SLOT_Y); ctx.stroke(); }
   for (let y = 0; y <= SLOT_Y; y += 40)   { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_W, y); ctx.stroke(); }
 }
@@ -739,54 +847,91 @@ function drawDailyTargetHint() {
 }
 
 function drawSlots() {
-  const slotWidth  = CANVAS_W / SLOT_COUNT;
-  const slotBottom = SLOT_Y + SLOT_HEIGHT;
+  const sw = CANVAS_W / SLOT_COUNT;
+  const sb = SLOT_Y + SLOT_HEIGHT;
+
+  // Dark slot zone base
+  ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(0, SLOT_Y, CANVAS_W, SLOT_HEIGHT);
+
+  // Pulsing aura rising from reward zone (atmospheric)
+  const auraGrad = ctx.createLinearGradient(0, SLOT_Y - 40, 0, SLOT_Y);
+  auraGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  const sp = state.luckyMode ? `rgba(255,215,0,${0.06 + 0.04 * Math.sin(state.superPulse * 0.7)})`
+                              : `rgba(120,0,200,${0.07 + 0.04 * Math.sin(state.superPulse * 0.7)})`;
+  auraGrad.addColorStop(1, sp);
+  ctx.fillStyle = auraGrad; ctx.fillRect(0, SLOT_Y - 40, CANVAS_W, 40);
 
   for (let i = 0; i < SLOT_COUNT; i++) {
-    const x = i * slotWidth; const val = SLOT_VALUES[i];
+    const x = i * sw; const val = SLOT_VALUES[i];
     const isBomb = i === state.bombSlot; const isCrit = i === state.criticalSlot;
     const isSuper = i === SUPER_JACKPOT_IDX;
     const isFlashing = state.slotFlash && state.slotFlash.index === i;
+    const bounce = state.slotBounce[i];
 
     ctx.save();
-    if (state.slotBounce[i] > 0) {
-      const t = 1 - state.slotBounce[i];
+    if (bounce > 0) {
+      const t = 1 - bounce;
       const spring = Math.exp(-t * 10) * (-Math.cos(t * 14));
-      const scaleY = 1 + 0.38 * spring;
-      const cx = x + slotWidth / 2;
-      ctx.translate(cx, slotBottom); ctx.scale(1, scaleY); ctx.translate(-cx, -slotBottom);
+      ctx.translate(x + sw / 2, sb); ctx.scale(1, 1 + 0.38 * spring); ctx.translate(-(x + sw / 2), -sb);
     }
 
-    let fillColor;
-    if (isFlashing)   fillColor = 'rgba(255,255,255,0.97)';
-    else if (isBomb)  fillColor = 'rgba(255,32,96,0.75)';
-    else if (isSuper) fillColor = `rgba(200,0,255,${0.65 + 0.15 * Math.sin(state.superPulse)})`;
-    else if (isCrit)  fillColor = `rgba(255,107,0,${0.6 + 0.15 * Math.sin(state.criticalPulse)})`;
-    else if (val >= 500) fillColor = 'rgba(255,215,0,0.65)';
-    else if (val >= 200) fillColor = 'rgba(0,180,216,0.65)';
-    else                 fillColor = 'rgba(30,30,60,0.8)';
+    // Slot gradient fill
+    let topRGB, glowColor;
+    if (isFlashing) { topRGB = '255,255,255'; glowColor = null; }
+    else if (isBomb) { topRGB = `255,20,${60 + 20*Math.abs(Math.sin(state.criticalPulse))}`; glowColor = '#ff2060'; }
+    else if (isSuper){ topRGB = `${190 + 20*Math.abs(Math.sin(state.superPulse))},0,255`; glowColor = '#cc00ff'; }
+    else if (isCrit) { topRGB = `255,${90 + 30*Math.abs(Math.sin(state.criticalPulse))},0`; glowColor = '#ff6b00'; }
+    else if (val >= 500) { topRGB = '255,200,0'; glowColor = '#ffd700'; }
+    else if (val >= 200) { topRGB = '0,185,235'; glowColor = '#00c8f0'; }
+    else { topRGB = '35,35,80'; glowColor = null; }
 
-    if      (isSuper && !isFlashing) { ctx.shadowBlur = 10 + 6 * Math.sin(state.superPulse); ctx.shadowColor = '#cc00ff'; }
-    else if (isCrit  && !isFlashing) { ctx.shadowBlur = 8 + 4 * Math.sin(state.criticalPulse); ctx.shadowColor = '#ff6b00'; }
-    else if (isBomb  && !isFlashing) { ctx.shadowBlur = 10; ctx.shadowColor = '#ff2060'; }
+    const grad = ctx.createLinearGradient(x, SLOT_Y, x, sb);
+    if (isFlashing) { grad.addColorStop(0, 'rgba(255,255,255,0.97)'); grad.addColorStop(1, 'rgba(200,200,200,0.9)'); }
+    else { grad.addColorStop(0, `rgba(${topRGB},${isSuper ? 0.88 : 0.78})`); grad.addColorStop(1, 'rgba(0,0,0,0.9)'); }
 
-    ctx.fillStyle = fillColor; ctx.fillRect(x + 1, SLOT_Y, slotWidth - 2, SLOT_HEIGHT);
+    if (glowColor) { ctx.shadowBlur = isSuper ? 22 + 8*Math.sin(state.superPulse) : isBomb ? 14 : 12; ctx.shadowColor = glowColor; }
+    ctx.fillStyle = grad; ctx.fillRect(x + 1, SLOT_Y, sw - 2, SLOT_HEIGHT);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = isFlashing ? '#000' : '#fff';
-    ctx.font = 'bold 11px Orbitron, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(isBomb ? 'BOMB' : isSuper ? '★' : isCrit ? 'CRIT' : `${val}`, x + slotWidth / 2, SLOT_Y + SLOT_HEIGHT / 2 - 7);
-    if (!isBomb) {
-      ctx.fillStyle = isFlashing ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.75)';
-      ctx.font = 'bold 9px Orbitron, sans-serif';
-      ctx.fillText(isSuper ? '2000' : isCrit ? '3x' : `${val}`, x + slotWidth / 2, SLOT_Y + SLOT_HEIGHT / 2 + 9);
+
+    // Super jackpot spike above slot
+    if (isSuper && !isFlashing) {
+      const spike = ctx.createLinearGradient(x + sw/2, SLOT_Y - 14, x + sw/2, SLOT_Y);
+      spike.addColorStop(0, 'rgba(200,0,255,0)'); spike.addColorStop(1, `rgba(200,0,255,${0.6 + 0.2*Math.sin(state.superPulse)})`);
+      ctx.shadowBlur = 20; ctx.shadowColor = '#cc00ff';
+      ctx.fillStyle = spike;
+      ctx.beginPath(); ctx.moveTo(x+2, SLOT_Y); ctx.lineTo(x + sw - 2, SLOT_Y); ctx.lineTo(x + sw/2, SLOT_Y - 14); ctx.closePath(); ctx.fill();
+      ctx.shadowBlur = 0;
     }
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x, SLOT_Y); ctx.lineTo(x, SLOT_Y + SLOT_HEIGHT); ctx.stroke();
+
+    // Separator lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, SLOT_Y); ctx.lineTo(x, sb); ctx.stroke();
+
+    // Labels
+    const midY = SLOT_Y + SLOT_HEIGHT / 2;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = isFlashing ? '#000' : '#fff';
+    if (glowColor && !isFlashing) { ctx.shadowBlur = 10; ctx.shadowColor = glowColor; }
+    ctx.font = `bold ${isSuper ? 14 : 12}px Orbitron, sans-serif`;
+    ctx.fillText(isBomb ? '💣' : isSuper ? '★' : isCrit ? 'CRIT' : `${val}`, x + sw/2, midY - 7);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = isFlashing ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.65)';
+    ctx.font = `bold ${isSuper ? 10 : 8}px Orbitron, sans-serif`;
+    if (isSuper) ctx.fillText('2000', x + sw/2, midY + 9);
+    else if (isBomb) ctx.fillText('-300', x + sw/2, midY + 9);
+    else if (isCrit) ctx.fillText('×3', x + sw/2, midY + 9);
+    else if (val >= 500) ctx.fillText(`${val}`, x + sw/2, midY + 9);
+
     ctx.restore();
   }
 
-  ctx.strokeStyle = 'rgba(0,245,255,0.3)'; ctx.lineWidth = 1.5;
+  // Bright separator line (reward zone entrance)
+  ctx.save();
+  ctx.shadowBlur = 14; ctx.shadowColor = state.luckyMode ? '#ffe600' : '#00c8f0';
+  ctx.strokeStyle = state.luckyMode ? 'rgba(255,230,0,0.75)' : 'rgba(0,200,240,0.6)';
+  ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(0, SLOT_Y); ctx.lineTo(CANVAS_W, SLOT_Y); ctx.stroke();
+  ctx.restore();
 }
 
 function drawPegs() {
@@ -794,23 +939,34 @@ function drawPegs() {
     const hit = state.pegHits.find(h => Math.abs(h.x - x) < 2 && Math.abs(h.y - y) < 2);
     const hi  = hit ? hit.timer / hit.maxTimer : 0;
     ctx.save();
-    ctx.shadowBlur = hi > 0 ? 22 + hi * 18 : 12;
-    ctx.shadowColor = hi > 0 ? '#ffffff' : '#00f5ff';
-    ctx.fillStyle   = hi > 0 ? `rgb(${Math.round(hi * 255)},245,255)` : '#00f5ff';
-    ctx.beginPath(); ctx.arc(x, y, PEG_RADIUS + hi * 2, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.beginPath(); ctx.arc(x - 1.5, y - 1.5, 2, 0, Math.PI * 2); ctx.fill();
+    if (hi > 0) {
+      ctx.shadowBlur = 20 + hi * 16; ctx.shadowColor = '#ffffff';
+      ctx.fillStyle = `rgba(${Math.round(160 + hi * 95)},230,255,${0.8 + hi * 0.2})`;
+      ctx.beginPath(); ctx.arc(x, y, PEG_RADIUS + hi * 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = `rgba(255,255,255,${hi * 0.8})`;
+      ctx.beginPath(); ctx.arc(x - 1.5, y - 1.5, 2, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(55,90,130,0.55)';
+      ctx.beginPath(); ctx.arc(x, y, PEG_RADIUS, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(160,200,240,0.2)';
+      ctx.beginPath(); ctx.arc(x - 1, y - 1, 2, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
   }
 }
 
 function drawBallTrail() {
   if (state.ballTrail.length < 2) return;
-  const tc = state.luckyMode ? '255,230,0' : '255,215,0';
+  const tc = state.luckyMode ? '255,230,0' : '255,200,20';
   for (let i = 0; i < state.ballTrail.length; i++) {
+    const t = 1 - i / state.ballTrail.length;
     const { x, y } = state.ballTrail[i];
-    ctx.beginPath(); ctx.arc(x, y, Math.max(BALL_RADIUS * (1 - i / state.ballTrail.length) * 0.7, 2), 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${tc},${(1 - i / state.ballTrail.length) * 0.35})`; ctx.fill();
+    ctx.save();
+    ctx.shadowBlur = i === 0 ? 12 : 0; ctx.shadowColor = state.luckyMode ? '#ffe600' : '#ffd700';
+    ctx.beginPath(); ctx.arc(x, y, Math.max(BALL_RADIUS * t * 0.95, 1.5), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${tc},${t * 0.55})`; ctx.fill();
+    ctx.restore();
   }
 }
 
@@ -818,14 +974,92 @@ function drawBall() {
   if (!state.ballBody) return;
   const { x, y } = state.ballBody.position;
   ctx.save();
-  ctx.shadowBlur = state.luckyMode ? 28 : 18; ctx.shadowColor = state.luckyMode ? '#ffe600' : '#ffd700';
-  const grad = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, BALL_RADIUS);
-  if (state.luckyMode) { grad.addColorStop(0, '#fff5aa'); grad.addColorStop(0.5, '#ffe600'); grad.addColorStop(1, '#ffaa00'); }
-  else                 { grad.addColorStop(0, '#ffe066'); grad.addColorStop(0.5, '#ffd700'); grad.addColorStop(1, '#ff8c00'); }
+  ctx.shadowBlur = state.luckyMode ? 48 : 36; ctx.shadowColor = state.luckyMode ? '#ffe600' : '#ffc500';
+  const grad = ctx.createRadialGradient(x - 4, y - 4, 1, x, y, BALL_RADIUS);
+  if (state.luckyMode) { grad.addColorStop(0,'#ffffff'); grad.addColorStop(0.25,'#fff7cc'); grad.addColorStop(0.65,'#ffe600'); grad.addColorStop(1,'#ff8c00'); }
+  else                 { grad.addColorStop(0,'#ffffff'); grad.addColorStop(0.25,'#fff0aa'); grad.addColorStop(0.65,'#ffd700'); grad.addColorStop(1,'#ff5500'); }
   ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(x, y, BALL_RADIUS, 0, Math.PI * 2); ctx.fill();
-  ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.beginPath(); ctx.arc(x - 3, y - 3, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.82)';
+  ctx.beginPath(); ctx.arc(x - 4, y - 4, 4.5, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
+}
+
+function drawBallTrail2() {
+  if (state.ballTrail2.length < 2) return;
+  const tc = state.luckyMode ? '255,230,0' : '210,80,255';
+  for (let i = 0; i < state.ballTrail2.length; i++) {
+    const t = 1 - i / state.ballTrail2.length;
+    const { x, y } = state.ballTrail2[i];
+    ctx.save();
+    ctx.shadowBlur = i === 0 ? 12 : 0; ctx.shadowColor = '#bf00ff';
+    ctx.beginPath(); ctx.arc(x, y, Math.max(BALL_RADIUS * t * 0.95, 1.5), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${tc},${t * 0.55})`; ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawBall2() {
+  if (!state.ballBody2) return;
+  const { x, y } = state.ballBody2.position;
+  ctx.save();
+  ctx.shadowBlur = state.luckyMode ? 48 : 36; ctx.shadowColor = state.luckyMode ? '#ffe600' : '#cc00ff';
+  const grad = ctx.createRadialGradient(x - 4, y - 4, 1, x, y, BALL_RADIUS);
+  if (state.luckyMode) { grad.addColorStop(0,'#ffffff'); grad.addColorStop(0.25,'#fff7cc'); grad.addColorStop(0.65,'#ffe600'); grad.addColorStop(1,'#ff8c00'); }
+  else                 { grad.addColorStop(0,'#ffffff'); grad.addColorStop(0.25,'#f0aaff'); grad.addColorStop(0.65,'#bf00ff'); grad.addColorStop(1,'#6600aa'); }
+  ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(x, y, BALL_RADIUS, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.82)';
+  ctx.beginPath(); ctx.arc(x - 4, y - 4, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawMovingBonus() {
+  if (!state.movingBonus) return;
+  const mb = state.movingBonus;
+  const slotWidth = CANVAS_W / SLOT_COUNT;
+  const bx = mb.pos * slotWidth + slotWidth / 2;
+  const pulse = 0.5 + 0.5 * Math.sin(state.superPulse * 3.5);
+
+  ctx.save();
+
+  // Highlight the slot background
+  ctx.fillStyle = `rgba(0,255,136,${0.07 + 0.06 * pulse})`;
+  ctx.fillRect(bx - slotWidth / 2, SLOT_Y, slotWidth, SLOT_HEIGHT);
+
+  // Glowing border around the slot
+  ctx.strokeStyle = `rgba(0,255,136,${0.5 + 0.4 * pulse})`;
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 14 + pulse * 8; ctx.shadowColor = '#00ff88';
+  ctx.strokeRect(bx - slotWidth / 2 + 1, SLOT_Y + 1, slotWidth - 2, SLOT_HEIGHT - 2);
+
+  // Downward pointing arrow above the slot
+  ctx.shadowBlur = 20 + pulse * 10; ctx.shadowColor = '#00ff88';
+  ctx.fillStyle = `rgba(0,255,136,${0.75 + 0.25 * pulse})`;
+  ctx.beginPath();
+  ctx.moveTo(bx,      SLOT_Y - 5);
+  ctx.lineTo(bx - 10, SLOT_Y - 22);
+  ctx.lineTo(bx + 10, SLOT_Y - 22);
+  ctx.closePath();
+  ctx.fill();
+
+  // BONUS label above arrow
+  ctx.shadowBlur = 10; ctx.font = 'bold 9px Orbitron, sans-serif';
+  ctx.fillStyle = `rgba(0,255,136,${0.85 + 0.15 * pulse})`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('BONUS ×2', bx, SLOT_Y - 32);
+
+  ctx.restore();
+}
+
+function drawAmbientMotes() {
+  for (const m of state.ambientMotes) {
+    const alpha = Math.pow(m.life / m.maxLife, 0.7) * 0.55;
+    if (alpha < 0.01) continue;
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.shadowBlur = 8; ctx.shadowColor = `rgb(${m.color})`;
+    ctx.fillStyle = `rgb(${m.color})`;
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.size, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
 }
 
 function drawParticles() {
@@ -1003,8 +1237,14 @@ function updateHUD() {
 function enableDropButton(enabled) {
   const btn = document.getElementById('dropBtn');
   btn.disabled = !enabled;
-  if (state.luckyMode && enabled) { btn.textContent = '★ DROP LUCKY BALL'; btn.style.background = 'linear-gradient(135deg, #ffd700 0%, #ff8c00 100%)'; }
-  else if (enabled)               { btn.textContent = 'DROP BALL'; btn.style.background = ''; }
+  const isMulti = state.multiBallOn && isMultiBallUnlocked();
+  if (state.luckyMode && enabled) {
+    btn.textContent = isMulti ? '★ DROP 2 LUCKY BALLS' : '★ DROP LUCKY BALL';
+    btn.style.background = 'linear-gradient(135deg, #ffd700 0%, #ff8c00 100%)';
+  } else if (enabled) {
+    btn.textContent = isMulti ? 'DROP 2 BALLS' : 'DROP BALL';
+    btn.style.background = '';
+  }
 }
 
 function pickCriticalSlot(bombSlot) {
@@ -1015,7 +1255,10 @@ function pickCriticalSlot(bombSlot) {
 
 function startGame(isDaily = false) {
   state.score = 0; state.ballsRemaining = BALLS_START; state.ballInPlay = false;
-  state.ballBody = null; state.ballTrail = []; state.floatingTexts = [];
+  state.ballBody = null; state.ballBody2 = null;
+  state.ballTrail = []; state.ballTrail2 = [];
+  state.ballsInPlay = 0; state.currentDropIsMulti = false;
+  state.floatingTexts = [];
   state.slotFlash = null; state.comboCount = 0; state.comboTimer = 0;
   state.isFirstBall = true; state.gameActive = true; state.lastAimX = CANVAS_W / 2;
   state.multiplier = 1; state.multiplierTimer = 0; state.luckyMode = false; state.luckyBanner = 0;
@@ -1023,7 +1266,9 @@ function startGame(isDaily = false) {
   state.criticalPulse = 0; state.superPulse = 0;
   state.particles = []; state.impactWaves = []; state.slotBounce = new Array(SLOT_COUNT).fill(0);
   state.screenFlash = 0; state.screenFlashColor = '255,255,255'; state.pegHits = [];
+  state.ambientMotes = []; state.ambientMoteTimer = 0;
   state.isDailyMode = isDaily; state.dailyBallResults = [];
+  state.movingBonus = { pos: SLOT_COUNT / 2, direction: 1, speed: 1.2 };
 
   if (isDaily) {
     const cfg = getDailyConfig();
@@ -1047,6 +1292,10 @@ function startGame(isDaily = false) {
 
   if (engine) engine.timing.timeScale = 1.0;
   initPhysics(); updateHUD(); enableDropButton(true);
+  showUpgradeIndicators();
+  const multiBtn = document.getElementById('multiBtn');
+  if (isMultiBallUnlocked()) { multiBtn.classList.remove('hidden'); updateMultiBtn(); }
+  else { multiBtn.classList.add('hidden'); }
   const btn = document.getElementById('dropBtn'); btn.textContent = 'DROP BALL'; btn.style.background = '';
   document.getElementById('startScreen').classList.add('hidden');
   document.getElementById('gameOverScreen').classList.add('hidden');
@@ -1063,6 +1312,15 @@ async function showGameOver() {
 
   document.getElementById('finalScore').textContent = state.score.toLocaleString();
   document.getElementById('finalHigh').textContent  = state.highScore.toLocaleString();
+
+  const earnedCoins = coinsFromScore(state.score);
+  addCoins(earnedCoins);
+  document.getElementById('startCoinsVal').textContent = getCoins().toLocaleString();
+  const coinsEl = document.getElementById('coinsEarnedVal');
+  coinsEl.textContent = String.fromCodePoint(0x1FA99) + ' ' + earnedCoins.toLocaleString();
+  coinsEl.classList.remove('pop');
+  void coinsEl.offsetWidth;
+  coinsEl.classList.add('pop');
 
   const dailyBlock = document.getElementById('dailyResultBlock');
 
@@ -1110,9 +1368,43 @@ async function showGameOver() {
 // ─────────────────────────────────────────────
 // SECTION 16: Event Wiring
 // ─────────────────────────────────────────────
+
+// Upgrade indicators displayed in-game
+function showUpgradeIndicators() {
+  const el = document.getElementById('upgradeIndicators');
+  if (!el) return;
+  const badges = [];
+  if (getUpgradeLevel('ballWeight') > 0)
+    badges.push('<span class="upg-badge">⚙ Lv' + getUpgradeLevel('ballWeight') + '</span>');
+  if (getUpgradeLevel('luckyBounce') > 0)
+    badges.push('<span class="upg-badge">☘ Lv' + getUpgradeLevel('luckyBounce') + '</span>');
+  if (getUpgradeLevel('multiBall') > 0)
+    badges.push('<span class="upg-badge">🎱 Lv' + getUpgradeLevel('multiBall') + '</span>');
+  if (badges.length > 0) {
+    el.innerHTML = badges.join('');
+    el.classList.remove('hidden');
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+function updateMultiBtn() {
+  const btn = document.getElementById('multiBtn');
+  if (!btn) return;
+  if (state.multiBallOn) {
+    btn.textContent = '🎱 MULTI: ON';
+    btn.classList.add('active');
+  } else {
+    btn.textContent = '🎱 MULTI: OFF';
+    btn.classList.remove('active');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initCanvas();
   document.getElementById('highScoreDisplay').textContent = state.highScore.toLocaleString();
+  document.getElementById('startCoinsVal').textContent = getCoins().toLocaleString();
+  initShop();
   refreshDailyCard();
 
   document.getElementById('playBtn').addEventListener('click', () => {
@@ -1126,7 +1418,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try { getAudioCtx().resume(); } catch(e) {}
     document.getElementById('gameOverScreen').classList.add('hidden');
     document.getElementById('startScreen').classList.remove('hidden');
+    document.getElementById('startCoinsVal').textContent = getCoins().toLocaleString();
     refreshDailyCard();
+  });
+
+  document.getElementById('multiBtn').addEventListener('click', () => {
+    state.multiBallOn = !state.multiBallOn;
+    updateMultiBtn();
+    enableDropButton(state.ballsInPlay === 0 && state.gameActive && state.ballsRemaining > 0);
   });
 
   document.getElementById('dropBtn').addEventListener('click', () => {
