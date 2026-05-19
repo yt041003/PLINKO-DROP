@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PLINKO DROP</title>
+  <meta name="description" content="Plinko Drop — drop the ball, chase the jackpot!" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Start screen overlay -->
+  <div id="startScreen" class="overlay">
+    <div class="overlay-content">
+      <h1 class="neon-title">PLINKO<br><span>DROP</span></h1>
+      <p class="subtitle">Drop the ball. Chase the jackpot.</p>
+      <button id="playBtn" class="btn-primary">▶ PLAY</button>
+    </div>
+  </div>
+
+  <!-- Game Over overlay -->
+  <div id="gameOverScreen" class="overlay hidden">
+    <div class="overlay-content">
+      <h2 class="neon-title game-over-title">GAME OVER</h2>
+      <div class="score-display">
+        <div class="score-row"><span>SCORE</span><span id="finalScore">0</span></div>
+        <div class="score-row best"><span>BEST</span><span id="finalHigh">0</span></div>
+      </div>
+      <button id="playAgainBtn" class="btn-primary">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- Game wrapper -->
+  <div id="gameWrapper">
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-item">
+        <span class="hud-label">SCORE</span>
+        <span class="hud-value" id="scoreDisplay">0</span>
+      </div>
+      <div class="hud-item center-hud">
+        <span class="hud-label">BEST</span>
+        <span class="hud-value" id="highScoreDisplay">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">BALLS</span>
+        <span class="hud-value" id="ballsDisplay">5</span>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div id="canvasContainer">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- Drop button -->
+    <div id="controls">
+      <button id="dropBtn" class="btn-drop">DROP BALL</button>
+    </div>
+  </div>
+
+  <!-- Matter.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
