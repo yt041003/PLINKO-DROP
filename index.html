@@ -10,12 +10,48 @@
 </head>
 <body>
 
+  <!-- Leaderboard overlay (from start screen) -->
+  <div id="lbOverlay" class="overlay hidden">
+    <div class="overlay-content lb-overlay-content">
+      <div class="lb-overlay-title">🏆 DAILY #<span id="lbOverlayDay">—</span></div>
+      <div id="lbOverlayList" class="lb-list lb-overlay-list">
+        <div class="lb-loading">Loading...</div>
+      </div>
+      <div id="lbOverlayFooter" class="lb-footer"></div>
+      <button id="lbOverlayClose" class="btn-primary">CLOSE</button>
+    </div>
+  </div>
+
   <!-- Start screen overlay -->
   <div id="startScreen" class="overlay">
     <div class="overlay-content">
       <h1 class="neon-title">PLINKO<br><span>DROP</span></h1>
       <p class="subtitle">Drop the ball. Chase the jackpot.</p>
-      <button id="playBtn" class="btn-primary">▶ PLAY</button>
+
+      <!-- Daily Challenge card -->
+      <div class="daily-card">
+        <div class="daily-card-top">
+          <span class="daily-card-icon">📅</span>
+          <span class="daily-card-title">DAILY #<span id="startDayNum">—</span></span>
+          <span class="daily-card-meta-inline">· Target: <strong id="startTarget">—</strong> · <strong id="startBonus">—</strong>x</span>
+        </div>
+
+        <!-- Already-played result -->
+        <div id="dailyAlreadySection" class="daily-already hidden">
+          <span id="dailyPrevEmoji" class="daily-prev-emoji"></span>
+          <span id="dailyPrevStatus" class="daily-prev-status"></span>
+        </div>
+
+        <!-- Player name row -->
+        <div class="daily-name-row">
+          <span class="daily-name-label">Playing as</span>
+          <span id="playerNameDisplay" class="daily-name-value">—</span>
+          <button id="changeNameBtn" class="btn-name-edit">edit</button>
+        </div>
+      </div>
+
+      <button id="dailyBtn" class="btn-daily">📅 DAILY CHALLENGE</button>
+      <button id="playBtn" class="btn-primary">▶ FREE PLAY</button>
     </div>
   </div>
 
@@ -27,13 +63,30 @@
         <div class="score-row"><span>SCORE</span><span id="finalScore">0</span></div>
         <div class="score-row best"><span>BEST</span><span id="finalHigh">0</span></div>
       </div>
+
+      <!-- Daily result + leaderboard (only visible in daily mode) -->
+      <div id="dailyResultBlock" class="daily-result-block hidden">
+        <div id="dailyResultHeader" class="daily-result-header"></div>
+        <div id="dailyResultEmoji" class="daily-result-emoji"></div>
+        <div id="dailyResultStatus" class="daily-result-status"></div>
+        <div id="dailyRankBadge" class="daily-rank-badge"></div>
+
+        <!-- Inline leaderboard -->
+        <div class="lb-section">
+          <div class="lb-section-title">🏆 TODAY'S TOP SCORES</div>
+          <div id="lbGameOverList" class="lb-list">
+            <div class="lb-loading">Submitting score...</div>
+          </div>
+          <div id="lbGameOverFooter" class="lb-footer"></div>
+        </div>
+      </div>
+
       <button id="playAgainBtn" class="btn-primary">PLAY AGAIN</button>
     </div>
   </div>
 
   <!-- Game wrapper -->
   <div id="gameWrapper">
-    <!-- HUD -->
     <div id="hud">
       <div class="hud-item">
         <span class="hud-label">SCORE</span>
@@ -49,18 +102,27 @@
       </div>
     </div>
 
-    <!-- Canvas -->
-    <div id="canvasContainer">
-      <canvas id="gameCanvas"></canvas>
+    <!-- Daily target bar -->
+    <div id="targetBar" class="target-bar hidden">
+      <div class="target-bar-inner">
+        <span class="target-bar-label">TARGET</span>
+        <div class="target-bar-track">
+          <div id="targetBarFill" class="target-bar-fill"></div>
+        </div>
+        <span id="targetBarValue" class="target-bar-value">0</span>
+      </div>
     </div>
 
-    <!-- Drop button -->
+    <div id="canvasContainer">
+      <canvas id="gameCanvas"></canvas>
+      <div id="dailyBadge" class="daily-badge hidden">📅 DAILY</div>
+    </div>
+
     <div id="controls">
       <button id="dropBtn" class="btn-drop">DROP BALL</button>
     </div>
   </div>
 
-  <!-- Matter.js from CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
   <script src="game.js"></script>
 </body>
