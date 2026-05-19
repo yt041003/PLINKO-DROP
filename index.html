@@ -10,7 +10,7 @@
 </head>
 <body>
 
-  <!-- Leaderboard overlay (from start screen) -->
+  <!-- Leaderboard overlay -->
   <div id="lbOverlay" class="overlay hidden">
     <div class="overlay-content lb-overlay-content">
       <div class="lb-overlay-title">🏆 DAILY #<span id="lbOverlayDay">—</span></div>
@@ -22,11 +22,93 @@
     </div>
   </div>
 
+  <!-- Shop overlay -->
+  <div id="shopOverlay" class="overlay hidden">
+    <div class="overlay-content shop-content">
+      <div class="shop-header">
+        <div class="shop-title">⚡ UPGRADES</div>
+        <div class="shop-coins"><span>🪙</span><span id="shopCoinsVal">0</span></div>
+      </div>
+
+      <!-- Ball Weight -->
+      <div class="upg-card" id="upg-ballWeight">
+        <div class="upg-top">
+          <span class="upg-icon">⚙️</span>
+          <div class="upg-info">
+            <div class="upg-name">Ball Weight</div>
+            <div class="upg-desc">Reduces random drift for a steadier drop.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">±16</div>
+            <div class="upg-cost">🪙 50</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+
+      <!-- Lucky Bounce -->
+      <div class="upg-card" id="upg-luckyBounce">
+        <div class="upg-top">
+          <span class="upg-icon">🍀</span>
+          <div class="upg-info">
+            <div class="upg-name">Lucky Bounce</div>
+            <div class="upg-desc">Permanent score bonus on every landing.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">+0%</div>
+            <div class="upg-cost">🪙 75</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+
+      <!-- Multi Ball -->
+      <div class="upg-card" id="upg-multiBall">
+        <div class="upg-top">
+          <span class="upg-icon">🎱</span>
+          <div class="upg-info">
+            <div class="upg-name">Multi Ball</div>
+            <div class="upg-desc">Drop 2 balls at once — score shared between both.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">Locked</div>
+            <div class="upg-cost">🪙 100</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <div class="upg-note" style="display:none;">Toggle during gameplay with the MULTI button.</div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+
+      <div class="shop-hint">Coins earned from every game · more score = more coins</div>
+      <button id="shopClose" class="btn-primary">CLOSE</button>
+    </div>
+  </div>
+
   <!-- Start screen overlay -->
   <div id="startScreen" class="overlay">
     <div class="overlay-content">
       <h1 class="neon-title">PLINKO<br><span>DROP</span></h1>
       <p class="subtitle">Drop the ball. Chase the jackpot.</p>
+
+      <!-- Coins row -->
+      <div class="start-coins-row">
+        <span class="start-coins-label">🪙</span>
+        <span id="startCoinsVal" class="start-coins-val">0</span>
+        <span class="start-coins-label">coins</span>
+        <button id="shopBtn" class="btn-shop">⚡ UPGRADES</button>
+      </div>
 
       <!-- Daily Challenge card -->
       <div class="daily-card">
@@ -35,14 +117,10 @@
           <span class="daily-card-title">DAILY #<span id="startDayNum">—</span></span>
           <span class="daily-card-meta-inline">· Target: <strong id="startTarget">—</strong> · <strong id="startBonus">—</strong>x</span>
         </div>
-
-        <!-- Already-played result -->
         <div id="dailyAlreadySection" class="daily-already hidden">
           <span id="dailyPrevEmoji" class="daily-prev-emoji"></span>
           <span id="dailyPrevStatus" class="daily-prev-status"></span>
         </div>
-
-        <!-- Player name row -->
         <div class="daily-name-row">
           <span class="daily-name-label">Playing as</span>
           <span id="playerNameDisplay" class="daily-name-value">—</span>
@@ -64,14 +142,18 @@
         <div class="score-row best"><span>BEST</span><span id="finalHigh">0</span></div>
       </div>
 
-      <!-- Daily result + leaderboard (only visible in daily mode) -->
+      <!-- Coins earned -->
+      <div class="coins-earned-row">
+        <span class="coins-earned-label">Coins earned</span>
+        <span id="coinsEarnedVal" class="coins-earned-val">🪙 0</span>
+      </div>
+
+      <!-- Daily result + leaderboard -->
       <div id="dailyResultBlock" class="daily-result-block hidden">
         <div id="dailyResultHeader" class="daily-result-header"></div>
         <div id="dailyResultEmoji" class="daily-result-emoji"></div>
         <div id="dailyResultStatus" class="daily-result-status"></div>
         <div id="dailyRankBadge" class="daily-rank-badge"></div>
-
-        <!-- Inline leaderboard -->
         <div class="lb-section">
           <div class="lb-section-title">🏆 TODAY'S TOP SCORES</div>
           <div id="lbGameOverList" class="lb-list">
@@ -102,7 +184,6 @@
       </div>
     </div>
 
-    <!-- Daily target bar -->
     <div id="targetBar" class="target-bar hidden">
       <div class="target-bar-inner">
         <span class="target-bar-label">TARGET</span>
@@ -116,14 +197,17 @@
     <div id="canvasContainer">
       <canvas id="gameCanvas"></canvas>
       <div id="dailyBadge" class="daily-badge hidden">📅 DAILY</div>
+      <div id="upgradeIndicators" class="upgrade-indicators hidden"></div>
     </div>
 
     <div id="controls">
+      <button id="multiBtn" class="btn-multi hidden">🎱 MULTI: OFF</button>
       <button id="dropBtn" class="btn-drop">DROP BALL</button>
     </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <script src="upgrades.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
