@@ -72,6 +72,46 @@ function setPlayerName(name) {
 // ─────────────────────────────────────────────
 let SLOT_VALUES = [...BASE_SLOT_VALUES];
 
+// ── Event System ──────────────────────────────
+const ROUND_EVENTS = [
+  { id: 'gold_rush',   label: '💰 GOLD RUSH',   desc: 'All slot values +75%',    color: '#ffd700' },
+  { id: 'chaos',       label: '🌀 CHAOS MODE',  desc: 'Pegs push balls sideways', color: '#bf00ff' },
+  { id: 'danger',      label: '💀 DANGER MODE', desc: 'Extra bomb slots!',        color: '#ff2060' },
+  { id: 'low_gravity', label: '🌙 LOW GRAVITY', desc: 'Balls fall in slow motion',color: '#00f5ff' },
+  { id: 'none',        label: '',               desc: '',                         color: '' },
+  { id: 'none',        label: '',               desc: '',                         color: '' },
+];
+
+function pickRoundEvent() {
+  return ROUND_EVENTS[Math.floor(Math.random() * ROUND_EVENTS.length)];
+}
+
+// ── Special Peg Types ─────────────────────────
+// normal (most), gold (x2 bonus), red (explosion), green (slow-mo), purple (teleport)
+const PEG_TYPE_WEIGHTS = [
+  { type: 'gold',   weight: 6  },
+  { type: 'red',    weight: 4  },
+  { type: 'green',  weight: 3  },
+  { type: 'purple', weight: 2  },
+  { type: 'normal', weight: 85 },
+];
+function randomPegType() {
+  let r = Math.random() * 100;
+  for (const { type, weight } of PEG_TYPE_WEIGHTS) { r -= weight; if (r <= 0) return type; }
+  return 'normal';
+}
+const PEG_COLORS = {
+  normal: { base: 'rgba(55,90,130,0.55)',  glow: '#00f5ff', hit: '160,230,255' },
+  gold:   { base: 'rgba(200,160,0,0.7)',   glow: '#ffd700', hit: '255,230,80'  },
+  red:    { base: 'rgba(180,40,20,0.7)',   glow: '#ff4400', hit: '255,120,60'  },
+  green:  { base: 'rgba(20,160,60,0.7)',   glow: '#00ff88', hit: '100,255,160' },
+  purple: { base: 'rgba(120,20,200,0.7)',  glow: '#cc44ff', hit: '210,120,255' },
+};
+
+// ── Rolling Score ─────────────────────────────
+let displayScore = 0;   // animated display value
+let targetScore  = 0;   // real score (snaps instantly in logic)
+
 let state = {
   score: 0,
   highScore: parseInt(localStorage.getItem('plinko_hs') || '0', 10),
@@ -122,6 +162,21 @@ let state = {
   dailyConfig: null,
   dailyBallResults: [],
   dailyBonusMult: 1,
+
+  // Round event
+  roundEvent: null,
+  eventBannerTimer: 0,
+  extraBombSlot: -1,
+
+  // Moving launcher
+  launcher: { x: CANVAS_W / 2, dir: 1, speed: 180 },
+  launcherActive: false,
+
+  // Hit-stop
+  hitStopTimer: 0,
+
+  // Special pegs
+  goldenPegBonus: 0,
 };
 
 // ─────────────────────────────────────────────
@@ -380,8 +435,9 @@ function buildWorld() {
     const y = PEG_START_Y + row * PEG_SPACING_Y;
     for (let col = 0; col < pegsInRow; col++) {
       const x = startX + col * PEG_SPACING_Y;
-      const peg = Bodies.circle(x, y, PEG_RADIUS, pegOpts);
-      pegBodies.push({ body: peg, x, y });
+      const type = randomPegType();
+      const peg = Bodies.circle(x, y, PEG_RADIUS, { ...pegOpts, label: `peg_${type}` });
+      pegBodies.push({ body: peg, x, y, type });
       World.add(engine.world, peg);
     }
   }
@@ -423,13 +479,43 @@ function onCollision(event) {
     if (!other || !landedBall) continue;
 
     if (other.label && other.label.startsWith('slot_')) {
-      handleSlotLand(parseInt(other.label.split('_')[1], 10), landedBall); break;
+      handleSlotLand(parseInt(other.label.split('_')[1], 10), landedBall); continue;
     }
-    if (other.label === 'peg') {
+    if (other.label && other.label.startsWith('peg')) {
       playSound('peg');
       const { x, y } = other.position;
-      state.pegHits.push({ x, y, timer: 0.14, maxTimer: 0.14 });
-      spawnPegParticles(x, y);
+      const pegData = pegBodies.find(p => p.body === other);
+      const pegType = pegData ? pegData.type : 'normal';
+      const col = PEG_COLORS[pegType];
+      state.pegHits.push({ x, y, timer: 0.22, maxTimer: 0.22, pegType });
+      spawnPegParticles(x, y, col.glow);
+
+      if (pegType === 'gold') {
+        state.goldenPegBonus += 1;
+        state.floatingTexts.push({ x, y: y - 12, text: '+x2 GOLD', color: '#ffd700', life: 0.9, maxLife: 0.9, size: 13 });
+        spawnImpactWave(x, y, '#ffd700', 28, 2);
+      } else if (pegType === 'red') {
+        state.screenShake = Math.max(state.screenShake, 0.22);
+        spawnLandingBurst(x, y, '#ff4400', 10, 130);
+        spawnImpactWave(x, y, '#ff4400', 32, 2.5);
+        state.floatingTexts.push({ x, y: y - 12, text: '💥 BOOM', color: '#ff6633', life: 0.8, maxLife: 0.8, size: 12 });
+      } else if (pegType === 'green') {
+        if (state.slowMotion <= 0) {
+          state.slowMotion = 1.4;
+          state.floatingTexts.push({ x, y: y - 12, text: '🌿 SLOW', color: '#00ff88', life: 0.9, maxLife: 0.9, size: 12 });
+          spawnImpactWave(x, y, '#00ff88', 28, 2);
+        }
+      } else if (pegType === 'purple') {
+        const ball = landedBall;
+        if (ball) {
+          const newX = BALL_RADIUS + 20 + Math.random() * (CANVAS_W - BALL_RADIUS * 2 - 40);
+          spawnLandingBurst(x, y, '#cc44ff', 12, 140);
+          spawnImpactWave(x, y, '#cc44ff', 30, 2);
+          Body.setPosition(ball, { x: newX, y: ball.position.y });
+          Body.setVelocity(ball, { x: (Math.random() - 0.5) * 3, y: Math.abs(ball.velocity.y) });
+          state.floatingTexts.push({ x, y: y - 12, text: '✨ WARP', color: '#cc44ff', life: 0.85, maxLife: 0.85, size: 12 });
+        }
+      }
     }
   }
 }
@@ -438,7 +524,7 @@ function handleSlotLand(slotIndex, landedBody) {
   if (state.ballsInPlay === 0) return;
   if (landedBody !== state.ballBody && landedBody !== state.ballBody2) return;
 
-  const isBomb  = slotIndex === state.bombSlot;
+  const isBomb  = slotIndex === state.bombSlot || slotIndex === state.extraBombSlot;
   const isCrit  = slotIndex === state.criticalSlot;
   const isSuper = slotIndex === SUPER_JACKPOT_IDX;
   const baseValue = SLOT_VALUES[slotIndex];
@@ -449,6 +535,11 @@ function handleSlotLand(slotIndex, landedBody) {
   if (state.isDailyMode)  mult *= state.dailyBonusMult;
   if (isCrit && !isBomb)  mult *= 3;
   mult += getLuckyBounceMult();
+  // Gold peg bonus: each gold peg hit doubles effective multiplier
+  if (state.goldenPegBonus > 0 && !isBomb) mult *= Math.pow(2, state.goldenPegBonus);
+  state.goldenPegBonus = 0;
+  // Gold Rush event: +75% to all positive slots
+  if (state.roundEvent && state.roundEvent.id === 'gold_rush' && !isBomb) mult *= 1.75;
 
   let timingBonus = false;
   if (state.movingBonus && !isBomb) {
@@ -460,6 +551,7 @@ function handleSlotLand(slotIndex, landedBody) {
   const points = isBomb ? -300 : Math.round(baseValue * mult / divisor);
 
   state.score = Math.max(0, state.score + points);
+  targetScore  = state.score;
   if (state.score > state.highScore) {
     state.highScore = state.score;
     localStorage.setItem('plinko_hs', state.highScore);
@@ -480,21 +572,32 @@ function handleSlotLand(slotIndex, landedBody) {
 
   state.slotBounce[slotIndex] = 1.0;
 
-  if (isSuper) {
-    spawnJackpotExplosion(fx, SLOT_Y, true);
-    state.screenFlash = 0.55; state.screenFlashColor = '200,0,255';
-    state.slowMotion = 1.2; state.screenShake = 0.55;
-    engine.timing.timeScale = 0.15;
-    playSound('superjackpot');
-  } else if (baseValue >= 500) {
-    spawnJackpotExplosion(fx, SLOT_Y, false);
-    state.screenFlash = 0.3; state.screenFlashColor = '255,215,0';
-    state.screenShake = 0.28; playSound('jackpot');
-  } else if (isBomb) {
+  if (isBomb) {
     spawnLandingBurst(fx, SLOT_Y, '#ff2060', 14, 160);
     spawnImpactWave(fx, SLOT_Y, '#ff2060', 80, 2.5);
     state.screenFlash = 0.2; state.screenFlashColor = '255,32,96';
     state.screenShake = 0.3; playSound('bomb');
+    hapticVibrate([60, 30, 60]);
+  } else if (isSuper) {
+    spawnJackpotExplosion(fx, SLOT_Y, true);
+    // Extra burst rings for super jackpot
+    for (let r = 0; r < 3; r++) {
+      setTimeout(() => spawnImpactWave(fx, SLOT_Y, '#cc00ff', 100 + r * 30, 3), r * 120);
+    }
+    spawnLandingBurst(fx, SLOT_Y, '#ff00ff', 30, 260);
+    state.screenFlash = 0.75; state.screenFlashColor = '200,0,255';
+    state.slowMotion = 1.2; state.screenShake = 0.85;
+    state.hitStopTimer = 0.09;
+    engine.timing.timeScale = 0.15;
+    playSound('superjackpot');
+    hapticVibrate([30, 60, 30, 60, 80]);
+  } else if (baseValue >= 500) {
+    spawnJackpotExplosion(fx, SLOT_Y, false);
+    spawnImpactWave(fx, SLOT_Y, '#ffd700', 90, 2.8);
+    state.screenFlash = 0.45; state.screenFlashColor = '255,215,0';
+    state.screenShake = 0.45; state.hitStopTimer = 0.05;
+    playSound('jackpot');
+    hapticVibrate([20, 40, 30]);
   } else {
     spawnLandingBurst(fx, SLOT_Y, baseValue >= 200 ? '#00f5ff' : '#8888aa', 8, 100);
     spawnImpactWave(fx, SLOT_Y, baseValue >= 200 ? '#00f5ff' : '#6666aa', 55, 1.5);
@@ -540,7 +643,7 @@ function handleSlotLand(slotIndex, landedBody) {
 
   if (state.ballsInPlay === 0) {
     if (state.ballsRemaining <= 0) setTimeout(showGameOver, isSuper ? 1400 : 800);
-    else enableDropButton(true);
+    else { enableDropButton(true); state.launcherActive = true; }
   }
 }
 
@@ -554,8 +657,13 @@ function dropBall(aimX) {
   const clamp = v => Math.max(BALL_RADIUS + 10, Math.min(CANVAS_W - BALL_RADIUS - 10, v));
   const spread = getBallSpread();
 
-  let x = aimX;
+  // Use launcher position instead of aim
+  let x = state.launcherActive ? state.launcher.x : aimX;
   if (state.isFirstBall) { x = x + (CANVAS_W / 2 - x) * 0.7; state.isFirstBall = false; }
+
+  // Low gravity event
+  const gravityMod = state.roundEvent && state.roundEvent.id === 'low_gravity' ? 0.4 : 1.0;
+  engine.gravity.y = 2.5 * gravityMod;
 
   const x1 = clamp(x + (Math.random() - 0.5) * spread);
   state.ballBody = Bodies.circle(x1, BALL_START_Y, BALL_RADIUS, {
@@ -580,6 +688,8 @@ function dropBall(aimX) {
   state.currentDropIsMulti = isMulti;
   state.ballInPlay = true; state.ballsRemaining--;
   engine.timing.timeScale = 1.0; state.slowMotion = 0;
+  state.launcherActive = false;
+  state.goldenPegBonus = 0;
 
   if (state.ballsRemaining === 0) { state.luckyMode = true; state.luckyBanner = 2.5; playSound('lucky'); }
 
@@ -589,15 +699,16 @@ function dropBall(aimX) {
 // ─────────────────────────────────────────────
 // SECTION 10: Particle & Wave System
 // ─────────────────────────────────────────────
-function spawnPegParticles(px, py) {
-  for (let i = 0; i < 5 + Math.floor(Math.random() * 3); i++) {
+function spawnPegParticles(px, py, color = '#00f5ff') {
+  const count = color === '#00f5ff' ? 5 + Math.floor(Math.random() * 3) : 7 + Math.floor(Math.random() * 4);
+  for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = 60 + Math.random() * 110;
+    const speed = 60 + Math.random() * 130;
     state.particles.push({
       x: px, y: py, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 20,
-      life: 0.18 + Math.random() * 0.12, maxLife: 0.3,
-      color: Math.random() < 0.7 ? '#00f5ff' : '#ffffff',
-      size: 1.5 + Math.random() * 2, gravity: 180, type: 'spark',
+      life: 0.18 + Math.random() * 0.14, maxLife: 0.32,
+      color: Math.random() < 0.65 ? color : '#ffffff',
+      size: 1.5 + Math.random() * 2.5, gravity: 180, type: 'spark',
     });
   }
 }
@@ -657,12 +768,26 @@ function spawnJackpotExplosion(px, py, isSuper) {
 let canvas, ctx;
 let lastTime = 0;
 
+function resizeGame() {
+  if (!canvas) return;
+  const wrapper = document.getElementById('canvasContainer');
+  const scale = Math.min(
+    wrapper.clientWidth  / CANVAS_W,
+    wrapper.clientHeight / CANVAS_H
+  );
+  canvas.style.width  = `${CANVAS_W * scale}px`;
+  canvas.style.height = `${CANVAS_H * scale}px`;
+}
+
 function initCanvas() {
   canvas = document.getElementById('gameCanvas');
   canvas.width = CANVAS_W; canvas.height = CANVAS_H;
   canvas.addEventListener('click', onCanvasClick);
   canvas.addEventListener('touchend', onCanvasTouch, { passive: false });
   canvas.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('resize', resizeGame);
+  window.addEventListener('orientationchange', resizeGame);
+  resizeGame();
   requestAnimationFrame(renderLoop);
 }
 
@@ -670,7 +795,9 @@ function onCanvasClick(e) {
   if (!state.gameActive) return;
   const rect = canvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) * (CANVAS_W / rect.width);
-  state.lastAimX = x; dropBall(x);
+  state.lastAimX = x;
+  if (state.launcherActive) dropBall(state.launcher.x);
+  else dropBall(x);
 }
 
 function onCanvasTouch(e) {
@@ -679,7 +806,9 @@ function onCanvasTouch(e) {
   const touch = e.changedTouches[0];
   const rect  = canvas.getBoundingClientRect();
   const x     = (touch.clientX - rect.left) * (CANVAS_W / rect.width);
-  state.lastAimX = x; dropBall(x);
+  state.lastAimX = x;
+  if (state.launcherActive) dropBall(state.launcher.x);
+  else dropBall(x);
 }
 
 function onMouseMove(e) {
@@ -699,12 +828,61 @@ function renderLoop(timestamp) {
 // SECTION 12: Update
 // ─────────────────────────────────────────────
 function update(dt) {
+  // Hit-stop: freeze everything briefly on super jackpot
+  if (state.hitStopTimer > 0) {
+    state.hitStopTimer -= dt;
+    engine.timing.timeScale = 0;
+    return;
+  }
+
   if (state.slowMotion > 0) {
     state.slowMotion -= dt;
     engine.timing.timeScale = state.slowMotion > 0 ? 0.15 + (1 - state.slowMotion / 1.2) * 0.85 : 1.0;
     if (state.slowMotion <= 0) engine.timing.timeScale = 1.0;
   }
   if (state.screenShake > 0) state.screenShake -= dt;
+  if (state.eventBannerTimer > 0) state.eventBannerTimer -= dt;
+
+  // Rolling score animation
+  if (displayScore !== targetScore) {
+    const diff = targetScore - displayScore;
+    const step = Math.ceil(Math.abs(diff) * Math.min(dt * 8, 1));
+    displayScore += diff > 0 ? Math.min(step, diff) : Math.max(-step, diff);
+    document.getElementById('scoreDisplay').textContent = Math.round(displayScore).toLocaleString();
+  }
+
+  // Stuck-ball detection: if a ball hasn't moved >3px in 1.5s, kick it downward
+  if (!state._stuckTrack) state._stuckTrack = {};
+  for (const [key, ball] of [['b1', state.ballBody], ['b2', state.ballBody2]]) {
+    if (!ball) { delete state._stuckTrack[key]; continue; }
+    const t = state._stuckTrack[key];
+    const { x, y } = ball.position;
+    if (!t) { state._stuckTrack[key] = { x, y, timer: 0 }; continue; }
+    const moved = Math.hypot(x - t.x, y - t.y);
+    if (moved > 3) { t.x = x; t.y = y; t.timer = 0; }
+    else {
+      t.timer += dt;
+      if (t.timer > 1.5) {
+        Body.setVelocity(ball, { x: (Math.random() - 0.5) * 3, y: 6 });
+        t.timer = 0; t.x = x; t.y = y;
+      }
+    }
+  }
+
+  // Moving launcher when ready to drop
+  if (state.launcherActive && state.ballsInPlay === 0 && state.ballsRemaining > 0) {
+    const l = state.launcher;
+    l.x += l.dir * l.speed * dt;
+    if (l.x >= CANVAS_W - BALL_RADIUS - 10) { l.x = CANVAS_W - BALL_RADIUS - 10; l.dir = -1; }
+    if (l.x <= BALL_RADIUS + 10)            { l.x = BALL_RADIUS + 10;             l.dir =  1; }
+  }
+
+  // Orphan guard: ballsInPlay positive but no bodies exist → immediate recovery
+  if (state.gameActive && state.ballsInPlay > 0 && !state.ballBody && !state.ballBody2) {
+    state.ballsInPlay = 0; state.ballInPlay = false;
+    if (state.ballsRemaining <= 0) setTimeout(showGameOver, 400);
+    else { enableDropButton(true); state.launcherActive = true; }
+  }
 
   // Moving bonus slot
   if (state.movingBonus) {
@@ -716,33 +894,51 @@ function update(dt) {
     if (mb.pos <= -0.5)             { mb.pos = -0.5;              mb.direction =  1; }
   }
 
+  // CHAOS MODE: nudge balls sideways on peg hit
+  const isChaos = state.roundEvent && state.roundEvent.id === 'chaos';
+
+  function updateBallPhysics(ball) {
+    if (!ball) return;
+    const { x, y } = ball.position;
+    // Ball acceleration in lower half
+    if (y > CANVAS_H * 0.5 && ball.velocity.y > 0) {
+      Body.setVelocity(ball, { x: ball.velocity.x, y: Math.min(ball.velocity.y + 0.2, 20) });
+    }
+    // Chaos: random sideways nudges
+    if (isChaos && Math.random() < 0.015) {
+      Body.setVelocity(ball, { x: ball.velocity.x + (Math.random() - 0.5) * 4, y: ball.velocity.y });
+    }
+  }
+
   if (state.ballBody) {
+    updateBallPhysics(state.ballBody);
     const { x, y } = state.ballBody.position;
     state.ballTrail.unshift({ x, y });
     if (state.ballTrail.length > 22) state.ballTrail.pop();
-    if (y > CANVAS_H + 60) {
+    if (y > CANVAS_H - 5) {
       World.remove(engine.world, state.ballBody);
       state.ballBody = null; state.ballTrail = [];
       state.ballsInPlay = Math.max(0, state.ballsInPlay - 1);
       state.ballInPlay = state.ballsInPlay > 0;
       if (state.ballsInPlay === 0) {
         if (state.ballsRemaining <= 0) setTimeout(showGameOver, 400);
-        else enableDropButton(true);
+        else { enableDropButton(true); state.launcherActive = true; }
       }
     }
   }
   if (state.ballBody2) {
+    updateBallPhysics(state.ballBody2);
     const { x: x2, y: y2 } = state.ballBody2.position;
     state.ballTrail2.unshift({ x: x2, y: y2 });
     if (state.ballTrail2.length > 22) state.ballTrail2.pop();
-    if (y2 > CANVAS_H + 60) {
+    if (y2 > CANVAS_H - 5) {
       World.remove(engine.world, state.ballBody2);
       state.ballBody2 = null; state.ballTrail2 = [];
       state.ballsInPlay = Math.max(0, state.ballsInPlay - 1);
       state.ballInPlay = state.ballsInPlay > 0;
       if (state.ballsInPlay === 0) {
         if (state.ballsRemaining <= 0) setTimeout(showGameOver, 400);
-        else enableDropButton(true);
+        else { enableDropButton(true); state.launcherActive = true; }
       }
     }
   }
@@ -800,10 +996,11 @@ function draw() {
   if (state.isDailyMode) drawDailyTargetHint();
   if (state.comboTimer > 0 && state.multiplier >= 2) drawMultiplierBanner();
   else if (state.comboTimer > 0) drawComboText();
-  if (state.luckyBanner > 0)   drawLuckyBanner();
-  if (state.nearMissTimer > 0) drawNearMiss();
-  if (state.multiplier > 1)    drawMultiplierHUD();
-  if (state.screenFlash > 0)   drawScreenFlash();
+  if (state.luckyBanner > 0)        drawLuckyBanner();
+  if (state.nearMissTimer > 0)      drawNearMiss();
+  if (state.multiplier > 1)         drawMultiplierHUD();
+  if (state.eventBannerTimer > 0)   drawEventBanner();
+  if (state.screenFlash > 0)        drawScreenFlash();
   ctx.restore();
 }
 
@@ -824,6 +1021,10 @@ function drawBackground() {
 }
 
 function drawAimGuide() {
+  if (state.launcherActive) {
+    drawLauncher();
+    return;
+  }
   const x = Math.max(BALL_RADIUS + 10, Math.min(CANVAS_W - BALL_RADIUS - 10, state.lastAimX));
   ctx.save();
   ctx.strokeStyle = 'rgba(0,245,255,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([6, 8]);
@@ -831,6 +1032,90 @@ function drawAimGuide() {
   ctx.setLineDash([]);
   ctx.strokeStyle = state.luckyMode ? 'rgba(255,230,0,0.7)' : 'rgba(0,245,255,0.5)';
   ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, BALL_START_Y, BALL_RADIUS, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+function drawLauncher() {
+  const lx = state.launcher.x;
+  const ly = BALL_START_Y;
+  const pulse = 0.5 + 0.5 * Math.sin(state.superPulse * 3);
+  const color = state.luckyMode ? '#ffe600' : '#00f5ff';
+  const colorRGB = state.luckyMode ? '255,230,0' : '0,245,255';
+
+  ctx.save();
+
+  // Dashed drop line
+  ctx.strokeStyle = `rgba(${colorRGB},0.25)`; ctx.lineWidth = 1; ctx.setLineDash([5, 7]);
+  ctx.beginPath(); ctx.moveTo(lx, ly + BALL_RADIUS + 2); ctx.lineTo(lx, CANVAS_H * 0.45); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Outer glow ring
+  ctx.shadowBlur = 18 + pulse * 10; ctx.shadowColor = color;
+  ctx.strokeStyle = `rgba(${colorRGB},${0.55 + pulse * 0.35})`; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(lx, ly, BALL_RADIUS + 6, 0, Math.PI * 2); ctx.stroke();
+
+  // Ball inside launcher
+  const grad = ctx.createRadialGradient(lx - 3, ly - 3, 1, lx, ly, BALL_RADIUS);
+  if (state.luckyMode) {
+    grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.4, '#fff7cc');
+    grad.addColorStop(0.7, '#ffe600'); grad.addColorStop(1, '#ff8c00');
+  } else {
+    grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.3, '#aaeeff');
+    grad.addColorStop(0.7, '#00b4d8'); grad.addColorStop(1, '#004488');
+  }
+  ctx.shadowBlur = 22 + pulse * 8; ctx.shadowColor = color;
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(lx, ly, BALL_RADIUS, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.beginPath(); ctx.arc(lx - 4, ly - 4, 4, 0, Math.PI * 2); ctx.fill();
+
+  // "TAP TO DROP" label
+  ctx.font = 'bold 10px Orbitron, sans-serif';
+  ctx.fillStyle = `rgba(${colorRGB},${0.7 + pulse * 0.25})`;
+  ctx.shadowBlur = 8; ctx.shadowColor = color;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('TAP TO DROP', CANVAS_W / 2, ly - BALL_RADIUS - 10);
+
+  ctx.restore();
+}
+
+function drawEventBanner() {
+  const ev = state.roundEvent;
+  if (!ev || ev.id === 'none' || state.eventBannerTimer <= 0) return;
+  const alpha = Math.min(state.eventBannerTimer * 1.5, 1) * Math.min((3.5 - state.eventBannerTimer) * 3, 1);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Background strip
+  const bx = 20, by = CANVAS_H / 2 - 44, bw = CANVAS_W - 40, bh = 64;
+  const bgGrad = ctx.createLinearGradient(bx, by, bx + bw, by);
+  bgGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  bgGrad.addColorStop(0.2, 'rgba(0,0,0,0.82)');
+  bgGrad.addColorStop(0.8, 'rgba(0,0,0,0.82)');
+  bgGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = bgGrad;
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 14); ctx.fill();
+
+  // Border glow
+  ctx.strokeStyle = ev.color; ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 16; ctx.shadowColor = ev.color;
+  ctx.beginPath(); ctx.roundRect(bx + 1, by + 1, bw - 2, bh - 2, 13); ctx.stroke();
+
+  // Label
+  ctx.shadowBlur = 20; ctx.shadowColor = ev.color;
+  ctx.fillStyle = ev.color;
+  ctx.font = 'bold 22px Orbitron, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(ev.label, CANVAS_W / 2, by + bh / 2 - 9);
+
+  // Desc
+  ctx.shadowBlur = 6; ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = 'bold 11px Orbitron, sans-serif';
+  ctx.fillText(ev.desc, CANVAS_W / 2, by + bh / 2 + 14);
+
   ctx.restore();
 }
 
@@ -863,7 +1148,8 @@ function drawSlots() {
 
   for (let i = 0; i < SLOT_COUNT; i++) {
     const x = i * sw; const val = SLOT_VALUES[i];
-    const isBomb = i === state.bombSlot; const isCrit = i === state.criticalSlot;
+    const isBomb = i === state.bombSlot || i === state.extraBombSlot;
+    const isCrit = i === state.criticalSlot;
     const isSuper = i === SUPER_JACKPOT_IDX;
     const isFlashing = state.slotFlash && state.slotFlash.index === i;
     const bounce = state.slotBounce[i];
@@ -935,23 +1221,51 @@ function drawSlots() {
 }
 
 function drawPegs() {
-  for (const { x, y } of pegBodies) {
+  for (const { x, y, type } of pegBodies) {
     const hit = state.pegHits.find(h => Math.abs(h.x - x) < 2 && Math.abs(h.y - y) < 2);
     const hi  = hit ? hit.timer / hit.maxTimer : 0;
+    const col = PEG_COLORS[type] || PEG_COLORS.normal;
+    const isSpecial = type !== 'normal';
+
     ctx.save();
+
+    // Scale-up animation on hit
+    const scale = 1 + hi * 0.35;
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    ctx.translate(-x, -y);
+
     if (hi > 0) {
-      ctx.shadowBlur = 20 + hi * 16; ctx.shadowColor = '#ffffff';
-      ctx.fillStyle = `rgba(${Math.round(160 + hi * 95)},230,255,${0.8 + hi * 0.2})`;
-      ctx.beginPath(); ctx.arc(x, y, PEG_RADIUS + hi * 2.5, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0; ctx.fillStyle = `rgba(255,255,255,${hi * 0.8})`;
-      ctx.beginPath(); ctx.arc(x - 1.5, y - 1.5, 2, 0, Math.PI * 2); ctx.fill();
-    } else {
+      // Hit flash — always bright
+      const [r, g, b] = col.hit.split(',').map(Number);
+      ctx.shadowBlur = 24 + hi * 20; ctx.shadowColor = col.glow;
+      ctx.fillStyle = `rgba(${Math.round(r + (255-r)*hi*0.6)},${Math.round(g + (255-g)*hi*0.4)},${Math.round(b + (255-b)*hi*0.3)},${0.85 + hi * 0.15})`;
+      ctx.beginPath(); ctx.arc(x, y, PEG_RADIUS + (isSpecial ? 1.5 : 0), 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = `rgba(255,255,255,${hi * 0.9})`;
+      ctx.beginPath(); ctx.arc(x - 1.5, y - 1.5, 2.2, 0, Math.PI * 2); ctx.fill();
+    } else if (isSpecial) {
+      // Special peg idle: glowing + pulsing ring
+      const pulse = 0.55 + 0.2 * Math.sin(state.superPulse * 1.8 + x * 0.05 + y * 0.03);
+      ctx.shadowBlur = 10 + pulse * 8; ctx.shadowColor = col.glow;
+      ctx.fillStyle = col.base;
+      ctx.beginPath(); ctx.arc(x, y, PEG_RADIUS + 1, 0, Math.PI * 2); ctx.fill();
+      // Inner bright centre
       ctx.shadowBlur = 0;
-      ctx.fillStyle = 'rgba(55,90,130,0.55)';
+      ctx.fillStyle = col.glow + '99';
+      ctx.beginPath(); ctx.arc(x, y, PEG_RADIUS * 0.55, 0, Math.PI * 2); ctx.fill();
+      // Outer ring
+      ctx.strokeStyle = col.glow + Math.round(pulse * 255).toString(16).padStart(2, '0');
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(x, y, PEG_RADIUS + 2.8, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      // Normal peg idle
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = col.base;
       ctx.beginPath(); ctx.arc(x, y, PEG_RADIUS, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(160,200,240,0.2)';
       ctx.beginPath(); ctx.arc(x - 1, y - 1, 2, 0, Math.PI * 2); ctx.fill();
     }
+
     ctx.restore();
   }
 }
@@ -1153,6 +1467,15 @@ function drawMultiplierHUD() {
 }
 
 // ─────────────────────────────────────────────
+// SECTION 13b: Haptics
+// ─────────────────────────────────────────────
+function hapticVibrate(pattern) {
+  try {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  } catch (e) { /* not supported */ }
+}
+
+// ─────────────────────────────────────────────
 // SECTION 14: Audio
 // ─────────────────────────────────────────────
 let audioCtx = null;
@@ -1226,7 +1549,7 @@ function playSound(type) {
 // SECTION 15: HUD & Game Flow
 // ─────────────────────────────────────────────
 function updateHUD() {
-  document.getElementById('scoreDisplay').textContent     = state.score.toLocaleString();
+  // Score display is driven by rolling animation in update(); only snap on reset
   document.getElementById('highScoreDisplay').textContent = state.highScore.toLocaleString();
   const ballsEl = document.getElementById('ballsDisplay');
   ballsEl.textContent   = state.ballsRemaining;
@@ -1269,6 +1592,26 @@ function startGame(isDaily = false) {
   state.ambientMotes = []; state.ambientMoteTimer = 0;
   state.isDailyMode = isDaily; state.dailyBallResults = [];
   state.movingBonus = { pos: SLOT_COUNT / 2, direction: 1, speed: 1.2 };
+  state.hitStopTimer = 0;
+
+  // Reset rolling score
+  displayScore = 0; targetScore = 0;
+  document.getElementById('scoreDisplay').textContent = '0';
+
+  // Moving launcher — starts active
+  state.launcher = { x: CANVAS_W / 2, dir: 1, speed: 180 };
+  state.launcherActive = true;
+
+  // Pick round event (free play only)
+  if (!isDaily) {
+    state.roundEvent = pickRoundEvent();
+    if (state.roundEvent.id !== 'none') {
+      state.eventBannerTimer = 3.5;
+    }
+  } else {
+    state.roundEvent = null;
+    state.eventBannerTimer = 0;
+  }
 
   if (isDaily) {
     const cfg = getDailyConfig();
@@ -1284,13 +1627,21 @@ function startGame(isDaily = false) {
     state.dailyConfig    = null;
     state.dailyBonusMult = 1;
     SLOT_VALUES          = [...BASE_SLOT_VALUES];
-    state.bombSlot       = Math.floor(Math.random() * SLOT_COUNT);
+    do { state.bombSlot = Math.floor(Math.random() * SLOT_COUNT); } while (state.bombSlot === SUPER_JACKPOT_IDX);
     state.criticalSlot   = pickCriticalSlot(state.bombSlot);
+    // Danger mode: add extra bomb slot (exclude bomb, super jackpot, and crit)
+    if (state.roundEvent && state.roundEvent.id === 'danger') {
+      let extra;
+      do { extra = Math.floor(Math.random() * SLOT_COUNT); }
+      while (extra === state.bombSlot || extra === SUPER_JACKPOT_IDX || extra === state.criticalSlot);
+      state.extraBombSlot = extra;
+    } else { state.extraBombSlot = -1; }
     document.getElementById('targetBar').classList.add('hidden');
     document.getElementById('dailyBadge').classList.add('hidden');
   }
 
   if (engine) engine.timing.timeScale = 1.0;
+  engine.gravity.y = 2.5;
   initPhysics(); updateHUD(); enableDropButton(true);
   showUpgradeIndicators();
   const multiBtn = document.getElementById('multiBtn');
@@ -1429,7 +1780,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('dropBtn').addEventListener('click', () => {
-    dropBall(state.lastAimX);
+    if (state.launcherActive) dropBall(state.launcher.x);
+    else dropBall(state.lastAimX);
   });
 
   // Change name button
