@@ -10,18 +10,6 @@
 </head>
 <body>
 
-  <!-- Leaderboard overlay -->
-  <div id="lbOverlay" class="overlay hidden">
-    <div class="overlay-content lb-overlay-content">
-      <div class="lb-overlay-title">🏆 DAILY #<span id="lbOverlayDay">—</span></div>
-      <div id="lbOverlayList" class="lb-list lb-overlay-list">
-        <div class="lb-loading">Loading...</div>
-      </div>
-      <div id="lbOverlayFooter" class="lb-footer"></div>
-      <button id="lbOverlayClose" class="btn-primary">CLOSE</button>
-    </div>
-  </div>
-
   <!-- Shop overlay -->
   <div id="shopOverlay" class="overlay hidden">
     <div class="overlay-content shop-content">
@@ -30,7 +18,199 @@
         <div class="shop-coins"><span>🪙</span><span id="shopCoinsVal">0</span></div>
       </div>
 
-      <!-- Ball Weight -->
+      <!-- Build Selector -->
+      <div class="build-selector">
+        <div class="build-tab" data-build="lucky">
+          <div class="build-tab-icon">🍀</div>
+          <div class="build-tab-name">Fortune<br>Hunter</div>
+          <div class="build-tab-tagline">Jackpots · Crits · Chains</div>
+        </div>
+        <div class="build-tab" data-build="chaos">
+          <div class="build-tab-icon">🎲</div>
+          <div class="build-tab-name">Gambler</div>
+          <div class="build-tab-tagline">Volatile · Wild · Explosive</div>
+        </div>
+        <div class="build-tab" data-build="heavy">
+          <div class="build-tab-icon">⚙️</div>
+          <div class="build-tab-name">Iron<br>Core</div>
+          <div class="build-tab-tagline">Stable · Deep · Crushing</div>
+        </div>
+      </div>
+
+      <!-- Build-exclusive upgrades -->
+      <div class="shop-section-label">BUILD UPGRADES</div>
+
+      <!-- Lucky upgrades -->
+      <div class="upg-card build-upg" data-build="lucky" id="upg-lucky_jackpotMagnet">
+        <div class="upg-top">
+          <span class="upg-icon">🧲</span>
+          <div class="upg-info">
+            <div class="upg-name">Jackpot Magnet</div>
+            <div class="upg-desc">Each drop nudges ball toward the jackpot lane.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">0%</div>
+            <div class="upg-cost">🪙 200</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+      <div class="upg-card build-upg" data-build="lucky" id="upg-lucky_critCharge">
+        <div class="upg-top">
+          <span class="upg-icon">⚡</span>
+          <div class="upg-info">
+            <div class="upg-name">Crit Charge</div>
+            <div class="upg-desc">Non-crit hits charge a gauge — full charge = guaranteed crit.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">OFF</div>
+            <div class="upg-cost">🪙 250</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+      <div class="upg-card build-upg" data-build="lucky" id="upg-lucky_fortuneChain">
+        <div class="upg-top">
+          <span class="upg-icon">🔗</span>
+          <div class="upg-info">
+            <div class="upg-name">Fortune Chain</div>
+            <div class="upg-desc">Jackpot or crit landings extend your multiplier timer.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">+0s</div>
+            <div class="upg-cost">🪙 300</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+
+      <!-- Chaos upgrades -->
+      <div class="upg-card build-upg" data-build="chaos" id="upg-chaos_explosivePeg">
+        <div class="upg-top">
+          <span class="upg-icon">💥</span>
+          <div class="upg-info">
+            <div class="upg-name">Explosive Peg</div>
+            <div class="upg-desc">Peg hits have a chance to wildly scatter the ball.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">0%</div>
+            <div class="upg-cost">🪙 150</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+      <div class="upg-card build-upg" data-build="chaos" id="upg-chaos_wildEvent">
+        <div class="upg-top">
+          <span class="upg-icon">🌀</span>
+          <div class="upg-info">
+            <div class="upg-name">Wild Event</div>
+            <div class="upg-desc">Each drop triggers a random mini-bonus event.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">OFF</div>
+            <div class="upg-cost">🪙 200</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+      <div class="upg-card build-upg" data-build="chaos" id="upg-chaos_rouletteSlot">
+        <div class="upg-top">
+          <span class="upg-icon">🎰</span>
+          <div class="upg-info">
+            <div class="upg-name">Roulette</div>
+            <div class="upg-desc">One hidden slot each drop is secretly a big multiplier.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">OFF</div>
+            <div class="upg-cost">🪙 250</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+
+      <!-- Heavy upgrades -->
+      <div class="upg-card build-upg" data-build="heavy" id="upg-heavy_ironCore">
+        <div class="upg-top">
+          <span class="upg-icon">🔩</span>
+          <div class="upg-info">
+            <div class="upg-name">Iron Core</div>
+            <div class="upg-desc">Extra drift reduction beyond Ball Weight — near-zero spread.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">+0</div>
+            <div class="upg-cost">🪙 300</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+      <div class="upg-card build-upg" data-build="heavy" id="upg-heavy_bonusFloor">
+        <div class="upg-top">
+          <span class="upg-icon">🛡️</span>
+          <div class="upg-info">
+            <div class="upg-name">Bonus Floor</div>
+            <div class="upg-desc">Sets a minimum score guaranteed per non-bomb landing.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">OFF</div>
+            <div class="upg-cost">🪙 200</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+      <div class="upg-card build-upg" data-build="heavy" id="upg-heavy_crushImpact">
+        <div class="upg-top">
+          <span class="upg-icon">💪</span>
+          <div class="upg-info">
+            <div class="upg-name">Crush Impact</div>
+            <div class="upg-desc">Each peg hit accumulates flat bonus added to landing score.</div>
+          </div>
+          <div class="upg-right">
+            <div class="upg-stat">+0</div>
+            <div class="upg-cost">🪙 250</div>
+          </div>
+        </div>
+        <div class="upg-progress">
+          <div class="upg-pips"><span class="upg-level"></span></div>
+          <div class="upg-track"><div class="upg-bar"></div></div>
+        </div>
+        <button class="upg-btn">UPGRADE</button>
+      </div>
+
+      <!-- Core upgrades -->
+      <div class="shop-section-label">CORE UPGRADES</div>
+
       <div class="upg-card" id="upg-ballWeight">
         <div class="upg-top">
           <span class="upg-icon">⚙️</span>
@@ -50,7 +230,6 @@
         <button class="upg-btn">UPGRADE</button>
       </div>
 
-      <!-- Lucky Bounce -->
       <div class="upg-card" id="upg-luckyBounce">
         <div class="upg-top">
           <span class="upg-icon">🍀</span>
@@ -70,7 +249,6 @@
         <button class="upg-btn">UPGRADE</button>
       </div>
 
-      <!-- Multi Ball -->
       <div class="upg-card" id="upg-multiBall">
         <div class="upg-top">
           <span class="upg-icon">🎱</span>
@@ -110,26 +288,7 @@
         <button id="shopBtn" class="btn-shop">⚡ UPGRADES</button>
       </div>
 
-      <!-- Daily Challenge card -->
-      <div class="daily-card">
-        <div class="daily-card-top">
-          <span class="daily-card-icon">📅</span>
-          <span class="daily-card-title">DAILY #<span id="startDayNum">—</span></span>
-          <span class="daily-card-meta-inline">· Target: <strong id="startTarget">—</strong> · <strong id="startBonus">—</strong>x</span>
-        </div>
-        <div id="dailyAlreadySection" class="daily-already hidden">
-          <span id="dailyPrevEmoji" class="daily-prev-emoji"></span>
-          <span id="dailyPrevStatus" class="daily-prev-status"></span>
-        </div>
-        <div class="daily-name-row">
-          <span class="daily-name-label">Playing as</span>
-          <span id="playerNameDisplay" class="daily-name-value">—</span>
-          <button id="changeNameBtn" class="btn-name-edit">edit</button>
-        </div>
-      </div>
-
-      <button id="dailyBtn" class="btn-daily">📅 DAILY CHALLENGE</button>
-      <button id="playBtn" class="btn-primary">▶ FREE PLAY</button>
+      <button id="playBtn" class="btn-primary">▶ PLAY</button>
     </div>
   </div>
 
@@ -146,21 +305,6 @@
       <div class="coins-earned-row">
         <span class="coins-earned-label">Coins earned</span>
         <span id="coinsEarnedVal" class="coins-earned-val">🪙 0</span>
-      </div>
-
-      <!-- Daily result + leaderboard -->
-      <div id="dailyResultBlock" class="daily-result-block hidden">
-        <div id="dailyResultHeader" class="daily-result-header"></div>
-        <div id="dailyResultEmoji" class="daily-result-emoji"></div>
-        <div id="dailyResultStatus" class="daily-result-status"></div>
-        <div id="dailyRankBadge" class="daily-rank-badge"></div>
-        <div class="lb-section">
-          <div class="lb-section-title">🏆 TODAY'S TOP SCORES</div>
-          <div id="lbGameOverList" class="lb-list">
-            <div class="lb-loading">Submitting score...</div>
-          </div>
-          <div id="lbGameOverFooter" class="lb-footer"></div>
-        </div>
       </div>
 
       <button id="playAgainBtn" class="btn-primary">PLAY AGAIN</button>
@@ -184,19 +328,8 @@
       </div>
     </div>
 
-    <div id="targetBar" class="target-bar hidden">
-      <div class="target-bar-inner">
-        <span class="target-bar-label">TARGET</span>
-        <div class="target-bar-track">
-          <div id="targetBarFill" class="target-bar-fill"></div>
-        </div>
-        <span id="targetBarValue" class="target-bar-value">0</span>
-      </div>
-    </div>
-
     <div id="canvasContainer">
       <canvas id="gameCanvas"></canvas>
-      <div id="dailyBadge" class="daily-badge hidden">📅 DAILY</div>
       <div id="upgradeIndicators" class="upgrade-indicators hidden"></div>
     </div>
 

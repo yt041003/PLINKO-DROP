@@ -123,50 +123,6 @@ body {
 .btn-shop:hover { transform: scale(1.05); background: rgba(0,245,255,0.18); box-shadow: 0 0 14px rgba(0,245,255,0.35); }
 .btn-shop:active { transform: scale(0.96); }
 
-/* ── Daily Card ── */
-.daily-card {
-  width: 100%;
-  background: rgba(255,215,0,0.05);
-  border: 1px solid rgba(255,215,0,0.22);
-  border-radius: 14px; padding: 10px 14px;
-  display: flex; flex-direction: column; gap: 6px;
-}
-.daily-card-top {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-}
-.daily-card-icon { font-size: 1rem; }
-.daily-card-title {
-  font-family: 'Orbitron', sans-serif; font-size: 0.72rem; font-weight: 700;
-  letter-spacing: 2px; color: var(--neon-gold);
-  text-shadow: 0 0 8px rgba(255,215,0,0.5);
-}
-.daily-card-meta-inline {
-  font-size: 0.72rem; color: rgba(255,255,255,0.5);
-}
-.daily-card-meta-inline strong { color: rgba(255,255,255,0.8); }
-
-.daily-already { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.daily-already.hidden { display: none; }
-.daily-prev-emoji { font-size: 1.2rem; letter-spacing: 3px; }
-.daily-prev-status { font-family: 'Orbitron', sans-serif; font-size: 0.65rem; letter-spacing: 1px; color: var(--neon-gold); }
-
-/* Player name row */
-.daily-name-row {
-  display: flex; align-items: center; gap: 6px;
-  border-top: 1px solid rgba(255,255,255,0.07); padding-top: 6px;
-}
-.daily-name-label { font-size: 0.68rem; color: rgba(255,255,255,0.4); letter-spacing: 1px; }
-.daily-name-value {
-  font-family: 'Orbitron', sans-serif; font-size: 0.68rem; font-weight: 700;
-  color: rgba(255,255,255,0.85); flex: 1;
-}
-.btn-name-edit {
-  font-size: 0.6rem; color: rgba(0,245,255,0.6); background: none; border: none;
-  cursor: pointer; padding: 2px 4px; border-radius: 4px;
-  transition: color 0.15s;
-}
-.btn-name-edit:hover { color: var(--neon-cyan); }
-
 /* ── Score Display (Game Over) ── */
 .score-display {
   background: rgba(255,255,255,0.05); border: 1px solid rgba(0,245,255,0.18);
@@ -196,85 +152,6 @@ body {
 }
 @keyframes coinPop { 0%{transform:scale(0.7);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
 .coins-earned-val.pop { animation: coinPop 0.45s ease forwards; }
-
-/* ── Daily Result Block (Game Over) ── */
-.daily-result-block {
-  width: 100%;
-  background: rgba(255,215,0,0.04);
-  border: 1px solid rgba(255,215,0,0.22);
-  border-radius: 14px; padding: 12px 14px;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-}
-.daily-result-block.hidden { display: none; }
-
-.daily-result-header {
-  font-family: 'Orbitron', sans-serif; font-size: 0.65rem;
-  letter-spacing: 2px; color: var(--neon-gold);
-  text-shadow: 0 0 8px rgba(255,215,0,0.4);
-}
-.daily-result-emoji { font-size: 1.4rem; letter-spacing: 4px; min-height: 28px; }
-.daily-result-status {
-  font-family: 'Orbitron', sans-serif; font-size: 0.72rem;
-  letter-spacing: 1.5px; padding: 4px 12px; border-radius: 20px;
-}
-.daily-result-status.beat { background: rgba(0,255,100,0.1); color: #00ff88; border: 1px solid rgba(0,255,100,0.25); }
-.daily-result-status.miss { background: rgba(255,32,96,0.1); color: #ff6080; border: 1px solid rgba(255,32,96,0.25); }
-
-.daily-rank-badge {
-  font-family: 'Orbitron', sans-serif; font-size: 0.78rem; font-weight: 700;
-  letter-spacing: 1.5px; color: #fff;
-}
-
-/* ── Leaderboard ── */
-.lb-section { width: 100%; }
-.lb-section-title {
-  font-family: 'Orbitron', sans-serif; font-size: 0.6rem;
-  letter-spacing: 2px; color: rgba(255,215,0,0.7);
-  margin-bottom: 6px; text-align: left;
-}
-.lb-list { display: flex; flex-direction: column; gap: 3px; width: 100%; }
-.lb-loading { font-size: 0.75rem; color: rgba(255,255,255,0.35); padding: 8px 0; text-align: center; }
-.lb-entry {
-  display: flex; align-items: center; gap: 6px;
-  padding: 5px 8px; border-radius: 8px;
-  background: rgba(255,255,255,0.04);
-  font-size: 0.72rem;
-}
-.lb-entry.me {
-  background: rgba(255,215,0,0.1);
-  border: 1px solid rgba(255,215,0,0.3);
-}
-.lb-rank {
-  font-family: 'Orbitron', sans-serif; font-size: 0.65rem;
-  color: rgba(255,255,255,0.4); min-width: 20px; text-align: right;
-}
-.lb-rank.top1 { color: #ffd700; }
-.lb-rank.top2 { color: #c0c0c0; }
-.lb-rank.top3 { color: #cd7f32; }
-.lb-name {
-  flex: 1; font-size: 0.72rem; color: rgba(255,255,255,0.8);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 110px; text-align: left;
-}
-.lb-entry.me .lb-name { color: var(--neon-gold); font-weight: 600; }
-.lb-score {
-  font-family: 'Orbitron', sans-serif; font-size: 0.7rem;
-  color: var(--neon-cyan); text-shadow: var(--glow-cyan); min-width: 48px; text-align: right;
-}
-.lb-beat { font-size: 0.8rem; min-width: 16px; }
-.lb-footer {
-  font-size: 0.65rem; color: rgba(255,255,255,0.3);
-  margin-top: 4px; text-align: center;
-}
-
-/* Leaderboard overlay (from start screen) */
-.lb-overlay-content { max-width: 320px; gap: 12px; }
-.lb-overlay-title {
-  font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 700;
-  letter-spacing: 2px; color: var(--neon-gold);
-  text-shadow: 0 0 10px rgba(255,215,0,0.5);
-}
-.lb-overlay-list { width: 100%; }
 
 /* ── Shop Overlay ── */
 .shop-content { max-width: 360px; gap: 12px; }
@@ -376,6 +253,53 @@ body {
 .upg-btn:active:not(:disabled) { transform: scale(0.97); }
 .upg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+/* ── Build Selector ── */
+.build-selector {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 7px; width: 100%;
+}
+.build-tab {
+  --build-color: #ffd700;
+  --build-rgb: 255,215,0;
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 12px; padding: 8px 6px;
+  cursor: pointer; text-align: center;
+  transition: border-color 0.18s, background 0.18s, transform 0.12s, box-shadow 0.18s;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.build-tab:hover {
+  border-color: rgba(var(--build-rgb), 0.5);
+  background: rgba(var(--build-rgb), 0.07);
+  transform: translateY(-1px);
+}
+.build-tab.active {
+  border-color: var(--build-color);
+  background: rgba(var(--build-rgb), 0.13);
+  box-shadow: 0 0 16px rgba(var(--build-rgb), 0.35), inset 0 0 10px rgba(var(--build-rgb), 0.08);
+}
+.build-tab-icon { font-size: 1.5rem; line-height: 1; }
+.build-tab-name {
+  font-family: 'Orbitron', sans-serif; font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 1px; color: rgba(255,255,255,0.9);
+  line-height: 1.2; text-align: center;
+}
+.build-tab.active .build-tab-name { color: var(--build-color); }
+.build-tab-tagline {
+  font-size: 0.5rem; color: rgba(255,255,255,0.35);
+  letter-spacing: 0.3px; line-height: 1.3; text-align: center;
+}
+.build-tab.active .build-tab-tagline { color: rgba(var(--build-rgb), 0.7); }
+
+/* ── Shop section labels ── */
+.shop-section-label {
+  font-family: 'Orbitron', sans-serif; font-size: 0.55rem; font-weight: 700;
+  letter-spacing: 3px; color: rgba(255,255,255,0.3);
+  text-align: center; width: 100%;
+  padding: 4px 0; border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 2px;
+}
+
 .shop-hint {
   font-size: 0.6rem; color: rgba(255,255,255,0.28);
   letter-spacing: 0.5px; text-align: center;
@@ -423,37 +347,6 @@ body {
 }
 .center-hud .hud-value { color: var(--neon-gold); text-shadow: 0 0 6px var(--neon-gold); }
 
-/* ── Target Bar ── */
-#targetBar {
-  width: 100%; max-width: 480px;
-  background: rgba(0,0,0,0.5);
-  border-bottom: 1px solid rgba(255,215,0,0.18);
-  padding: 4px 12px; flex-shrink: 0;
-}
-#targetBar.hidden { display: none; }
-.target-bar-inner { display: flex; align-items: center; gap: 8px; }
-.target-bar-label {
-  font-family: 'Orbitron', sans-serif; font-size: 0.5rem;
-  letter-spacing: 2px; color: rgba(255,215,0,0.6); white-space: nowrap; flex-shrink: 0;
-}
-.target-bar-track {
-  flex: 1; height: 6px;
-  background: rgba(255,215,0,0.1); border-radius: 3px; overflow: hidden;
-}
-.target-bar-fill {
-  height: 100%; width: 0%;
-  background: linear-gradient(90deg, #ffd700, #ff8c00);
-  border-radius: 3px; transition: width 0.3s ease;
-  box-shadow: 0 0 6px rgba(255,215,0,0.6);
-}
-.target-bar-fill.beat { background: linear-gradient(90deg, #00ff88, #00e066); box-shadow: 0 0 8px rgba(0,255,136,0.7); }
-.target-bar-value {
-  font-family: 'Orbitron', sans-serif; font-size: 0.5rem;
-  letter-spacing: 1px; color: rgba(255,215,0,0.7); white-space: nowrap; flex-shrink: 0;
-}
-#targetBar.target-beaten .target-bar-label,
-#targetBar.target-beaten .target-bar-value { color: #00ff88; }
-
 /* ── Canvas ── */
 #canvasContainer {
   position: relative; flex: 1;
@@ -468,17 +361,6 @@ body {
   background: var(--bg-dark); cursor: crosshair;
   width: 100%; height: auto; max-width: 480px; max-height: 100%;
 }
-.daily-badge {
-  position: absolute; top: 8px; left: 8px;
-  font-family: 'Orbitron', sans-serif; font-size: 0.55rem; font-weight: 700;
-  letter-spacing: 1.5px; color: var(--neon-gold);
-  background: rgba(0,0,0,0.65); border: 1px solid rgba(255,215,0,0.35);
-  border-radius: 20px; padding: 3px 9px;
-  text-shadow: 0 0 8px rgba(255,215,0,0.5);
-  pointer-events: none; z-index: 10;
-}
-.daily-badge.hidden { display: none; }
-
 /* ── Upgrade card note ── */
 .upg-note {
   font-size: 0.6rem; color: rgba(0,245,255,0.6);
